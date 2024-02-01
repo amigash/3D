@@ -5,11 +5,41 @@ fn main() {
     nannou::app(model).update(update).run();
 }
 
+struct Camera {
+    position: Point3,
+    rotation: Vec2,
+}
+
+impl Camera {
+    fn new(position: Point3, rotation: Vec2) -> Self {
+        Camera {
+            position,
+            rotation
+        }
+    }
+
+    fn forward(&self) -> Vec3 {
+        let (x_sin, x_cos) = self.rotation.x.sin_cos();
+        let (y_sin, y_cos) = self.rotation.y.sin_cos();
+        Vec3::new(
+            y_cos * x_cos,
+            x_sin,
+            y_sin * x_cos
+        )
+    }
+
+    fn matrix(&self) -> Mat4 {
+        let forward = self.forward();
+        let right = forward.cross(Vec3::Y).normalize();
+        let up = right.cross(forward).normalize();
+        Mat4::look_to_rh(self.position, forward, up)
+    }
+}
+
 struct Model {
     mesh: Mesh,
     projection_matrix: Mat4,
-    position: Point3,
-    rotation: Vec2,
+    camera: Camera
 }
 
 fn model(app: &App) -> Model {
@@ -92,12 +122,12 @@ fn model(app: &App) -> Model {
     let projection_matrix = Mat4::perspective_rh(f32::FRAC_PI_2(), 1.0, 0.1, 100.0);
     let position = Point3::ZERO;
     let rotation = Vec2::ZERO;
+    let camera = Camera::new(position, rotation);
 
     Model {
         mesh,
         projection_matrix,
-        position,
-        rotation,
+        camera
     }
 }
 
@@ -111,10 +141,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
     draw.background().color(BLACK);
 
     let scale = (0.5 * app.window_rect().wh()).extend(1.0);
-    let camera_rotation =
-        Mat4::from_rotation_x(model.rotation.x) * Mat4::from_rotation_y(model.rotation.y);
-    let camera_translation = Mat4::from_translation(-model.position);
-    let view_matrix = camera_rotation.transpose() * camera_translation;
+    let view_matrix = model.camera.matrix();
 
     let transform = |point: &Point3| -> Point3 {
         let homogeneous = Point3::from(*point).extend(1.0);
@@ -152,27 +179,30 @@ fn update(app: &App, model: &mut Model, _update: Update) {
 }
 
 fn update_camera(app: &App, model: &mut Model) {
-    let up = Vec3::Y;
-    let forward = (Vec3::Z * -1.0).normalize();
 
-    let mut translation = Vec3::ZERO;
     let mut rotation = Point2::ZERO;
+
+    let speed = 0.1;
+    let forward = model.camera.forward();
+    let right = forward.cross(Vec3::Y).normalize();
 
     for key in app.keys.down.iter() {
         match key {
-            Key::W => translation.z -= 0.1,
-            Key::S => translation.z += 0.1,
-            Key::A => translation.x -= 0.1,
-            Key::D => translation.x += 0.1,
-            Key::Space => translation.y += 0.1,
-            Key::LShift => translation.y -= 0.1,
-            Key::Left => rotation.y += 0.05,
-            Key::Right => rotation.y -= 0.05,
+            Key::W => model.camera.position += forward * speed,
+            Key::S => model.camera.position -= forward * speed,
+            Key::A => model.camera.position -= right * speed,
+            Key::D => model.camera.position += right * speed,
+            Key::Space => model.camera.position.y += speed,
+            Key::LShift => model.camera.position.y -= speed,
+            Key::Left => rotation.y -= 0.05,
+            Key::Right => rotation.y += 0.05,
             Key::Up => rotation.x += 0.05,
             Key::Down => rotation.x -= 0.05,
             _ => {}
         }
     }
+
+    model.camera.rotation += rotation;
 
 
 
