@@ -13,11 +13,11 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(position: Point3, rotation: Vec2) -> Self {
+    pub fn new(position: Point3, rotation: Vec2, aspect_ratio: f32) -> Self {
         Camera {
             position,
             rotation,
-            projection_matrix: Mat4::perspective_rh(FOV, 1.0, Z_NEAR, Z_FAR)
+            projection_matrix: Mat4::perspective_rh(FOV, aspect_ratio, Z_NEAR, Z_FAR)
         }
     }
 
@@ -65,13 +65,9 @@ impl Camera {
         self.rotation += rotation * SENSITIVITY;
         self.rotation.x = self.rotation.x.clamp(0.99 * -FRAC_PI_2, 0.99 * FRAC_PI_2);
         self.rotation.y = self.rotation.y.rem_euclid(TAU);
-
-        self.update_aspect_ratio(app);
     }
 
-    fn update_aspect_ratio(&mut self, app: &App) {
-        let window_rect = app.window_rect();
-        let aspect_ratio = window_rect.w() / window_rect.h();
+    pub fn update_aspect_ratio(&mut self, aspect_ratio: f32) {
         self.projection_matrix = Mat4::perspective_rh(FOV, aspect_ratio, Z_NEAR, Z_FAR);
     }
 }

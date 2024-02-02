@@ -17,7 +17,7 @@ struct Model {
 }
 
 fn model(app: &App) -> Model {
-    app.new_window().size(WIDTH, HEIGHT).view(view).build().unwrap();
+    app.new_window().size(WIDTH, HEIGHT).event(event).view(view).build().unwrap();
 
     let mesh = Mesh {
         triangles: vec![
@@ -91,7 +91,7 @@ fn model(app: &App) -> Model {
     };
     let position = Point3::ZERO;
     let rotation = Vec2::ZERO;
-    let camera = Camera::new(position, rotation);
+    let camera = Camera::new(position, rotation, WIDTH as f32 / HEIGHT as f32);
 
     Model {
         mesh,
@@ -141,4 +141,10 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
 fn update(app: &App, model: &mut Model, _update: Update) {
     model.camera.update(app);
+}
+
+fn event(_app: &App, model: &mut Model, event: WindowEvent) {
+    if let Resized(size) = event {
+        model.camera.update_aspect_ratio(size.x / size.y);
+    }
 }
