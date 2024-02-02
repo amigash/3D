@@ -11,11 +11,16 @@ fn main() {
 struct Camera {
     position: Point3,
     rotation: Vec2,
+    projection_matrix: Mat4,
 }
 
 impl Camera {
     fn new(position: Point3, rotation: Vec2) -> Self {
-        Camera { position, rotation }
+        Camera {
+            position,
+            rotation,
+            projection_matrix: Mat4::perspective_rh(f32::FRAC_PI_2(), 1.0, 0.1, 100.0)
+        }
     }
 
     fn forward(&self) -> Vec3 {
@@ -32,13 +37,41 @@ impl Camera {
         let forward = self.forward();
         let right = self.right();
         let up = right.cross(forward).normalize();
-        Mat4::look_to_rh(self.position, forward, up)
+        self.projection_matrix * Mat4::look_to_rh(self.position, forward, up)
+    }
+
+    fn update(&mut self, app: &App) {
+        let mut rotation = Point2::ZERO;
+        let mut translation = Vec3::ZERO;
+
+        let right = self.right();
+        let forward = right.cross(-Vec3::Y).normalize(); // "flat" forward vector -- not affected by pitch
+
+        for key in app.keys.down.iter() {
+            match key {
+                Key::W => translation += forward,
+                Key::S => translation -= forward,
+                Key::A => translation -= right,
+                Key::D => translation += right,
+                Key::Space => translation.y += 1.0,
+                Key::LShift => translation.y -= 1.0,
+                Key::Left => rotation.y -= 1.0,
+                Key::Right => rotation.y += 1.0,
+                Key::Up => rotation.x += 1.0,
+                Key::Down => rotation.x -= 1.0,
+                _ => {}
+            }
+        }
+
+        self.position += translation * SPEED;
+        self.rotation += rotation * SENSITIVITY;
+        self.rotation.x = self.rotation.x.clamp(0.99 * -f32::FRAC_PI_2(), 0.99 * f32::FRAC_PI_2());
+        self.rotation.y = self.rotation.y.rem_euclid(f32::TAU());
     }
 }
 
 struct Model {
     mesh: Mesh,
-    projection_matrix: Mat4,
     camera: Camera,
 }
 
@@ -115,14 +148,12 @@ fn model(app: &App) -> Model {
             ]),
         ],
     };
-    let projection_matrix = Mat4::perspective_rh(f32::FRAC_PI_2(), 1.0, 0.1, 100.0);
     let position = Point3::ZERO;
     let rotation = Vec2::ZERO;
     let camera = Camera::new(position, rotation);
 
     Model {
         mesh,
-        projection_matrix,
         camera,
     }
 }
@@ -136,12 +167,10 @@ fn view(app: &App, model: &Model, frame: Frame) {
     draw.background().color(BLACK);
 
     let scale = (0.5 * app.window_rect().wh()).extend(1.0);
-    let view_matrix = model.camera.matrix();
 
     let transform = |point: &Point3| -> Point3 {
         let homogeneous = (*point).extend(1.0);
-        let camera_transformed = view_matrix * homogeneous;
-        let projected = model.projection_matrix * camera_transformed;
+        let projected = model.camera.matrix() * homogeneous;
         let perspective_divided = if projected.w != 0.0 {
             projected / projected.w
         } else {
@@ -170,38 +199,5 @@ fn view(app: &App, model: &Model, frame: Frame) {
 }
 
 fn update(app: &App, model: &mut Model, _update: Update) {
-    update_camera(app, model);
-}
-
-fn update_camera(app: &App, model: &mut Model) {
-    let mut rotation = Point2::ZERO;
-    let mut translation = Vec3::ZERO;
-
-    let right = model.camera.right();
-    let forward = right.cross(-Vec3::Y).normalize(); // "flat" forward vector -- not affected by pitch
-
-    for key in app.keys.down.iter() {
-        match key {
-            Key::W => translation += forward,
-            Key::S => translation -= forward,
-            Key::A => translation -= right,
-            Key::D => translation += right,
-            Key::Space => translation.y += 1.0,
-            Key::LShift => translation.y -= 1.0,
-            Key::Left => rotation.y -= 1.0,
-            Key::Right => rotation.y += 1.0,
-            Key::Up => rotation.x += 1.0,
-            Key::Down => rotation.x -= 1.0,
-            _ => {}
-        }
-    }
-
-    model.camera.position += translation * SPEED;
-    model.camera.rotation += rotation * SENSITIVITY;
-    model.camera.rotation.x = model
-        .camera
-        .rotation
-        .x
-        .clamp(-f32::FRAC_PI_2(), f32::FRAC_PI_2());
-    model.camera.rotation.y = model.camera.rotation.y.rem_euclid(f32::TAU());
+    model.camera.update(app);
 }
