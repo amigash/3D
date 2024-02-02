@@ -188,7 +188,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let draw_axis = |axis: Vec3, color: Srgb<u8>| {
         draw.polyline()
             .color(color)
-            .points([Vec3::ZERO, axis].iter().map(|v| transform(&v)));
+            .points([Vec3::ZERO, axis].iter().map(transform));
     };
 
     draw_axis(Vec3::X, RED);
