@@ -107,17 +107,8 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
     draw.background().color(BLACK);
 
-    let scale = (0.5 * app.window_rect().wh()).extend(1.0);
-
     let transform = |point: &Point3| -> Point3 {
-        let homogeneous = (*point).extend(1.0);
-        let projected = model.camera.matrix() * homogeneous;
-        let perspective_divided = if projected.w != 0.0 {
-            projected / projected.w
-        } else {
-            projected
-        };
-        perspective_divided.truncate() * scale
+        model.camera.project(point, app.window_rect().wh())
     };
 
     for tri in &model.mesh.triangles {

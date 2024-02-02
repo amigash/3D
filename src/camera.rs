@@ -31,7 +31,7 @@ impl Camera {
         self.forward().cross(Vec3::Y).normalize()
     }
 
-    pub fn matrix(&self) -> Mat4 {
+    fn matrix(&self) -> Mat4 {
         let forward = self.forward();
         let right = self.right();
         let up = right.cross(forward).normalize();
@@ -69,5 +69,16 @@ impl Camera {
 
     pub fn update_aspect_ratio(&mut self, aspect_ratio: f32) {
         self.projection_matrix = Mat4::perspective_rh(FOV, aspect_ratio, Z_NEAR, Z_FAR);
+    }
+
+    pub fn project(&self, point: &Point3, window_size: Vec2) -> Point3 {
+        let homogeneous = (*point).extend(1.0);
+        let projected = self.matrix() * homogeneous;
+        let perspective_divided = if projected.w != 0.0 {
+            projected / projected.w
+        } else {
+            projected
+        };
+        0.5 * window_size.extend(1.0) * perspective_divided.truncate() // Scale to target dimensions
     }
 }
