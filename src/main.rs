@@ -139,7 +139,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let view_matrix = model.camera.matrix();
 
     let transform = |point: &Point3| -> Point3 {
-        let homogeneous = Point3::from(*point).extend(1.0);
+        let homogeneous = (*point).extend(1.0);
         let camera_transformed = view_matrix * homogeneous;
         let projected = model.projection_matrix * camera_transformed;
         let perspective_divided = if projected.w != 0.0 {
