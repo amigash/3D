@@ -5,6 +5,8 @@ use nannou::{
     prelude::*
 };
 
+const WIDTH: u32 = 800;
+const HEIGHT: u32 = 800;
 fn main() {
     nannou::app(model).update(update).run();
 }
@@ -15,7 +17,7 @@ struct Model {
 }
 
 fn model(app: &App) -> Model {
-    app.new_window().size(800, 800).view(view).build().unwrap();
+    app.new_window().size(WIDTH, HEIGHT).view(view).build().unwrap();
 
     let mesh = Mesh {
         triangles: vec![

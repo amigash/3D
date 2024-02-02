@@ -1,6 +1,10 @@
-use nannou::prelude::{FloatConst, Mat4LookTo, Mat4, Point2, Point3, Vec2, Vec3, Key, App};
+use nannou::prelude::{Mat4LookTo, Mat4, Point2, Point3, Vec2, Vec3, Key, App};
+use std::f32::consts::{FRAC_PI_2, TAU};
 const SPEED: f32 = 0.1;
 const SENSITIVITY: f32 = 0.03;
+const Z_NEAR: f32 = 0.1;
+const Z_FAR: f32 = 100.0;
+const FOV: f32 = FRAC_PI_2;
 
 pub struct Camera {
     position: Point3,
@@ -13,7 +17,7 @@ impl Camera {
         Camera {
             position,
             rotation,
-            projection_matrix: Mat4::perspective_rh(f32::FRAC_PI_2(), 1.0, 0.1, 100.0)
+            projection_matrix: Mat4::perspective_rh(FOV, 1.0, Z_NEAR, Z_FAR)
         }
     }
 
@@ -59,7 +63,15 @@ impl Camera {
 
         self.position += translation * SPEED;
         self.rotation += rotation * SENSITIVITY;
-        self.rotation.x = self.rotation.x.clamp(0.99 * -f32::FRAC_PI_2(), 0.99 * f32::FRAC_PI_2());
-        self.rotation.y = self.rotation.y.rem_euclid(f32::TAU());
+        self.rotation.x = self.rotation.x.clamp(0.99 * -FRAC_PI_2, 0.99 * FRAC_PI_2);
+        self.rotation.y = self.rotation.y.rem_euclid(TAU);
+
+        self.update_aspect_ratio(app);
+    }
+
+    fn update_aspect_ratio(&mut self, app: &App) {
+        let window_rect = app.window_rect();
+        let aspect_ratio = window_rect.w() / window_rect.h();
+        self.projection_matrix = Mat4::perspective_rh(FOV, aspect_ratio, Z_NEAR, Z_FAR);
     }
 }
