@@ -1,7 +1,7 @@
-use nannou::prelude::{Mat4LookTo, Mat4, Point2, Point3, Vec2, Vec3, Key, App};
+use nannou::prelude::{Mat4LookTo, Mat4, Point3, Vec2, Vec3, Key, App};
 use std::f32::consts::{FRAC_PI_2, TAU};
 const SPEED: f32 = 0.1;
-const SENSITIVITY: f32 = 0.03;
+const SENSITIVITY: f32 = 0.003;
 const Z_NEAR: f32 = 0.1;
 const Z_FAR: f32 = 100.0;
 const FOV: f32 = FRAC_PI_2;
@@ -39,7 +39,6 @@ impl Camera {
     }
 
     pub fn update(&mut self, app: &App) {
-        let mut rotation = Point2::ZERO;
         let mut translation = Vec3::ZERO;
 
         let right = self.right();
@@ -53,18 +52,11 @@ impl Camera {
                 Key::D => translation += right,
                 Key::Space => translation.y += 1.0,
                 Key::LShift => translation.y -= 1.0,
-                Key::Left => rotation.y -= 1.0,
-                Key::Right => rotation.y += 1.0,
-                Key::Up => rotation.x += 1.0,
-                Key::Down => rotation.x -= 1.0,
                 _ => {}
             }
         }
 
         self.position += translation * SPEED;
-        self.rotation += rotation * SENSITIVITY;
-        self.rotation.x = self.rotation.x.clamp(0.99 * -FRAC_PI_2, 0.99 * FRAC_PI_2);
-        self.rotation.y = self.rotation.y.rem_euclid(TAU);
     }
 
     pub fn update_aspect_ratio(&mut self, aspect_ratio: f32) {
@@ -80,5 +72,11 @@ impl Camera {
             projected
         };
         0.5 * window_size.extend(1.0) * perspective_divided.truncate() // Scale to target dimensions
+    }
+
+    pub fn update_rotation(&mut self, delta: Vec2) {
+        self.rotation = self.rotation + delta * SENSITIVITY;
+        self.rotation.x = self.rotation.x.clamp(0.99 * -FRAC_PI_2, 0.99 * FRAC_PI_2);
+        self.rotation.y = self.rotation.y.rem_euclid(TAU);
     }
 }

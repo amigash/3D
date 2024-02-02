@@ -4,11 +4,13 @@ use nannou::{
     geom::Tri,
     prelude::*
 };
+use nannou::winit::event::DeviceEvent;
+use nannou::winit::window::CursorGrabMode;
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 800;
 fn main() {
-    nannou::app(model).update(update).run();
+    nannou::app(model).update(update).event(event).run();
 }
 
 struct Model {
@@ -17,7 +19,16 @@ struct Model {
 }
 
 fn model(app: &App) -> Model {
-    app.new_window().size(WIDTH, HEIGHT).event(event).view(view).build().unwrap();
+    app
+        .new_window()
+        .size(WIDTH, HEIGHT)
+        .view(view)
+        .build()
+        .unwrap();
+
+    let window = app.main_window();
+    window.set_cursor_visible(false);
+    window.winit_window().set_cursor_grab(CursorGrabMode::Confined).unwrap(); // nannou's window only allows Locked and None
 
     let mesh = Mesh {
         triangles: vec![
@@ -134,8 +145,15 @@ fn update(app: &App, model: &mut Model, _update: Update) {
     model.camera.update(app);
 }
 
-fn event(_app: &App, model: &mut Model, event: WindowEvent) {
-    if let Resized(size) = event {
-        model.camera.update_aspect_ratio(size.x / size.y);
+fn event(_app: &App, model: &mut Model, event: Event) {
+    match event {
+        Event::WindowEvent {
+            simple: Some(Resized(size)),
+            ..
+        } => model.camera.update_aspect_ratio(size.x / size.y),
+        Event::DeviceEvent(_, DeviceEvent::MouseMotion { delta: (dx, dy) }, ..) => {
+            model.camera.update_rotation(vec2(-dy as f32, dx as f32));
+        }
+        _ => {}
     }
 }
