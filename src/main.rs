@@ -15,20 +15,13 @@ struct Camera {
 
 impl Camera {
     fn new(position: Point3, rotation: Vec2) -> Self {
-        Camera {
-            position,
-            rotation
-        }
+        Camera { position, rotation }
     }
 
     fn forward(&self) -> Vec3 {
         let (x_sin, x_cos) = self.rotation.x.sin_cos();
         let (y_sin, y_cos) = self.rotation.y.sin_cos();
-        Vec3::new(
-            y_cos * x_cos,
-            x_sin,
-            y_sin * x_cos
-        )
+        Vec3::new(y_cos * x_cos, x_sin, y_sin * x_cos)
     }
 
     fn right(&self) -> Vec3 {
@@ -46,15 +39,11 @@ impl Camera {
 struct Model {
     mesh: Mesh,
     projection_matrix: Mat4,
-    camera: Camera
+    camera: Camera,
 }
 
 fn model(app: &App) -> Model {
-    app.new_window()
-        .size(800, 800)
-        .view(view)
-        .build()
-        .unwrap();
+    app.new_window().size(800, 800).view(view).build().unwrap();
 
     let mesh = Mesh {
         triangles: vec![
@@ -134,7 +123,7 @@ fn model(app: &App) -> Model {
     Model {
         mesh,
         projection_matrix,
-        camera
+        camera,
     }
 }
 
@@ -143,7 +132,6 @@ struct Mesh {
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {
-
     let draw = app.draw();
     draw.background().color(BLACK);
 
@@ -210,8 +198,10 @@ fn update_camera(app: &App, model: &mut Model) {
 
     model.camera.position += translation * SPEED;
     model.camera.rotation += rotation * SENSITIVITY;
-    model.camera.rotation.x = model.camera.rotation.x.clamp(-f32::FRAC_PI_2(), f32::FRAC_PI_2());
+    model.camera.rotation.x = model
+        .camera
+        .rotation
+        .x
+        .clamp(-f32::FRAC_PI_2(), f32::FRAC_PI_2());
     model.camera.rotation.y = model.camera.rotation.y.rem_euclid(f32::TAU());
-
 }
-
