@@ -1,6 +1,9 @@
 use nannou::geom::Tri;
 use nannou::prelude::*;
 
+const SPEED: f32 = 0.1;
+const SENSITIVITY: f32 = 0.03;
+
 fn main() {
     nannou::app(model).update(update).run();
 }
@@ -28,9 +31,13 @@ impl Camera {
         )
     }
 
+    fn right(&self) -> Vec3 {
+        self.forward().cross(Vec3::Y).normalize()
+    }
+
     fn matrix(&self) -> Mat4 {
         let forward = self.forward();
-        let right = forward.cross(Vec3::Y).normalize();
+        let right = self.right();
         let up = right.cross(forward).normalize();
         Mat4::look_to_rh(self.position, forward, up)
     }
@@ -179,32 +186,32 @@ fn update(app: &App, model: &mut Model, _update: Update) {
 }
 
 fn update_camera(app: &App, model: &mut Model) {
-
     let mut rotation = Point2::ZERO;
+    let mut translation = Vec3::ZERO;
 
-    let speed = 0.1;
-    let forward = model.camera.forward();
-    let right = forward.cross(Vec3::Y).normalize();
+    let right = model.camera.right();
+    let forward = right.cross(-Vec3::Y).normalize(); // "flat" forward vector -- not affected by pitch
 
     for key in app.keys.down.iter() {
         match key {
-            Key::W => model.camera.position += forward * speed,
-            Key::S => model.camera.position -= forward * speed,
-            Key::A => model.camera.position -= right * speed,
-            Key::D => model.camera.position += right * speed,
-            Key::Space => model.camera.position.y += speed,
-            Key::LShift => model.camera.position.y -= speed,
-            Key::Left => rotation.y -= 0.05,
-            Key::Right => rotation.y += 0.05,
-            Key::Up => rotation.x += 0.05,
-            Key::Down => rotation.x -= 0.05,
+            Key::W => translation += forward,
+            Key::S => translation -= forward,
+            Key::A => translation -= right,
+            Key::D => translation += right,
+            Key::Space => translation.y += 1.0,
+            Key::LShift => translation.y -= 1.0,
+            Key::Left => rotation.y -= 1.0,
+            Key::Right => rotation.y += 1.0,
+            Key::Up => rotation.x += 1.0,
+            Key::Down => rotation.x -= 1.0,
             _ => {}
         }
     }
 
-    model.camera.rotation += rotation;
-
-
+    model.camera.position += translation * SPEED;
+    model.camera.rotation += rotation * SENSITIVITY;
+    model.camera.rotation.x = model.camera.rotation.x.clamp(-f32::FRAC_PI_2(), f32::FRAC_PI_2());
+    model.camera.rotation.y = model.camera.rotation.y.rem_euclid(f32::TAU());
 
 }
 
