@@ -185,15 +185,15 @@ fn view(app: &App, model: &Model, frame: Frame) {
             .color(WHITE);
     }
 
-    draw.polyline()
-        .points([Vec3::ZERO, Vec3::X].iter().map(transform))
-        .color(RED);
-    draw.polyline()
-        .points([Vec3::ZERO, Vec3::Y].iter().map(transform))
-        .color(GREEN);
-    draw.polyline()
-        .points([Vec3::ZERO, Vec3::Z].iter().map(transform))
-        .color(BLUE);
+    let draw_axis = |axis: Vec3, color: Srgb<u8>| {
+        draw.polyline()
+            .points([Vec3::ZERO, axis].iter().map(|v| transform(&v))
+                .color(color));
+    };
+
+    draw_axis(Vec3::X, RED);
+    draw_axis(Vec3::Y, GREEN);
+    draw_axis(Vec3::Z, BLUE);
 
     draw.to_frame(app, &frame).unwrap();
 }
