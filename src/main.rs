@@ -1,4 +1,7 @@
 mod camera;
+mod mesh;
+
+use std::fs::File;
 use camera::Camera;
 use nannou::{
     geom::Tri,
@@ -6,6 +9,7 @@ use nannou::{
 };
 use nannou::winit::event::DeviceEvent;
 use nannou::winit::window::CursorGrabMode;
+use crate::mesh::mesh_from_obj_file;
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 800;
@@ -32,74 +36,7 @@ fn model(app: &App) -> Model {
     window.set_cursor_visible(false);
     window.winit_window().set_cursor_grab(CursorGrabMode::Confined).unwrap(); // nannou's window only allows Locked and None
 
-    let mesh =  vec![
-            // Front
-            Tri([
-                pt3(-1.0, -1.0, 1.0),
-                pt3(1.0, -1.0, 1.0),
-                pt3(1.0, 1.0, 1.0),
-            ]),
-            Tri([
-                pt3(-1.0, -1.0, 1.0),
-                pt3(1.0, 1.0, 1.0),
-                pt3(-1.0, 1.0, 1.0),
-            ]),
-            // Back
-            Tri([
-                pt3(-1.0, -1.0, -1.0),
-                pt3(1.0, 1.0, -1.0),
-                pt3(1.0, -1.0, -1.0),
-            ]),
-            Tri([
-                pt3(-1.0, -1.0, -1.0),
-                pt3(-1.0, 1.0, -1.0),
-                pt3(1.0, 1.0, -1.0),
-            ]),
-            // Right
-            Tri([
-                pt3(1.0, -1.0, -1.0),
-                pt3(1.0, 1.0, -1.0),
-                pt3(1.0, 1.0, 1.0),
-            ]),
-            Tri([
-                pt3(1.0, -1.0, -1.0),
-                pt3(1.0, 1.0, 1.0),
-                pt3(1.0, -1.0, 1.0),
-            ]),
-            // Left
-            Tri([
-                pt3(-1.0, -1.0, -1.0),
-                pt3(-1.0, 1.0, 1.0),
-                pt3(-1.0, 1.0, -1.0),
-            ]),
-            Tri([
-                pt3(-1.0, -1.0, -1.0),
-                pt3(-1.0, -1.0, 1.0),
-                pt3(-1.0, 1.0, 1.0),
-            ]),
-            // Top
-            Tri([
-                pt3(-1.0, 1.0, -1.0),
-                pt3(-1.0, 1.0, 1.0),
-                pt3(1.0, 1.0, 1.0),
-            ]),
-            Tri([
-                pt3(-1.0, 1.0, -1.0),
-                pt3(1.0, 1.0, 1.0),
-                pt3(1.0, 1.0, -1.0),
-            ]),
-            // Bottom
-            Tri([
-                pt3(-1.0, -1.0, -1.0),
-                pt3(1.0, -1.0, 1.0),
-                pt3(-1.0, -1.0, 1.0),
-            ]),
-            Tri([
-                pt3(-1.0, -1.0, -1.0),
-                pt3(1.0, -1.0, -1.0),
-                pt3(1.0, -1.0, 1.0),
-            ]),
-        ];
+    let mesh = mesh_from_obj_file(File::open("assets/teapot.obj").unwrap()).unwrap();
     let position = Point3::ZERO;
     let rotation = Vec2::ZERO;
     let camera = Camera::new(position, rotation, WIDTH as f32 / HEIGHT as f32);
@@ -137,6 +74,12 @@ fn view(app: &App, model: &Model, frame: Frame) {
     draw_axis(Vec3::Y, GREEN);
     draw_axis(Vec3::Z, BLUE);
 
+    // crosshair
+    draw.ellipse()
+        .wh(Vec2::ZERO)
+        .color(WHITE)
+        .radius(1.5);
+
     draw.to_frame(app, &frame).unwrap();
 }
 
@@ -149,7 +92,7 @@ fn event(_app: &App, model: &mut Model, event: Event) {
         Event::WindowEvent {
             simple: Some(Resized(size)),
             ..
-        } => model.camera.update_aspect_ratio(size.x / size.y),
+        } => model.camera.aspect_ratio = size.x / size.y,
         Event::DeviceEvent(_, DeviceEvent::MouseMotion { delta: (dx, dy) }, ..) => {
             model.camera.update_rotation(vec2(-dy as f32, dx as f32));
         }

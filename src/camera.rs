@@ -11,7 +11,7 @@ const FOV: f32 = FRAC_PI_2;
 pub struct Camera {
     position: Point3,
     rotation: Vec2,
-    projection_matrix: Mat4,
+    pub aspect_ratio: f32
 }
 
 impl Camera {
@@ -19,7 +19,7 @@ impl Camera {
         Camera {
             position,
             rotation,
-            projection_matrix: Mat4::perspective_rh(FOV, aspect_ratio, Z_NEAR, Z_FAR)
+            aspect_ratio
         }
     }
 
@@ -37,7 +37,7 @@ impl Camera {
         let forward = self.forward();
         let right = self.right();
         let up = right.cross(forward).normalize();
-        self.projection_matrix * Mat4::look_to_rh(self.position, forward, up)
+        Mat4::perspective_rh(FOV, self.aspect_ratio, Z_NEAR, Z_FAR) * Mat4::look_to_rh(self.position, forward, up)
     }
 
     pub fn update(&mut self, keys: &Keys) {
@@ -60,11 +60,6 @@ impl Camera {
 
         self.position += translation * SPEED;
     }
-
-    pub fn update_aspect_ratio(&mut self, aspect_ratio: f32) {
-        self.projection_matrix = Mat4::perspective_rh(FOV, aspect_ratio, Z_NEAR, Z_FAR);
-    }
-
     pub fn project(&self, point: Point3) -> Point3 {
         let homogeneous = point.extend(1.0);
         let projected = self.matrix() * homogeneous;
