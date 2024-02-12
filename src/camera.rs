@@ -63,19 +63,19 @@ impl Camera {
         self.projection_matrix = Mat4::perspective_rh(FOV, aspect_ratio, Z_NEAR, Z_FAR);
     }
 
-    pub fn project(&self, point: &Point3, window_size: Vec2) -> Point3 {
-        let homogeneous = (*point).extend(1.0);
+    pub fn project(&self, point: Point3, window_size: Vec2) -> Point3 {
+        let homogeneous = point.extend(1.0);
         let projected = self.matrix() * homogeneous;
-        let perspective_divided = if projected.w != 0.0 {
-            projected / projected.w
-        } else {
+        let perspective_divided = if projected.w == 0.0 {
             projected
+        } else {
+            projected / projected.w
         };
         0.5 * window_size.extend(1.0) * perspective_divided.truncate() // Scale to target dimensions
     }
 
     pub fn update_rotation(&mut self, delta: Vec2) {
-        self.rotation = self.rotation + delta * SENSITIVITY;
+        self.rotation += delta * SENSITIVITY;
         self.rotation.x = self.rotation.x.clamp(0.99 * -FRAC_PI_2, 0.99 * FRAC_PI_2);
         self.rotation.y = self.rotation.y.rem_euclid(TAU);
     }

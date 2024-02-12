@@ -14,13 +14,15 @@ fn main() {
 }
 
 struct Model {
-    mesh: Mesh,
+    mesh: Vec<Tri>,
     camera: Camera,
 }
 
 fn model(app: &App) -> Model {
     app
         .new_window()
+        .decorations(false)
+        .fullscreen()
         .size(WIDTH, HEIGHT)
         .view(view)
         .build()
@@ -30,8 +32,7 @@ fn model(app: &App) -> Model {
     window.set_cursor_visible(false);
     window.winit_window().set_cursor_grab(CursorGrabMode::Confined).unwrap(); // nannou's window only allows Locked and None
 
-    let mesh = Mesh {
-        triangles: vec![
+    let mesh =  vec![
             // Front
             Tri([
                 pt3(-1.0, -1.0, 1.0),
@@ -98,8 +99,7 @@ fn model(app: &App) -> Model {
                 pt3(1.0, -1.0, -1.0),
                 pt3(1.0, -1.0, 1.0),
             ]),
-        ],
-    };
+        ];
     let position = Point3::ZERO;
     let rotation = Vec2::ZERO;
     let camera = Camera::new(position, rotation, WIDTH as f32 / HEIGHT as f32);
@@ -110,19 +110,16 @@ fn model(app: &App) -> Model {
     }
 }
 
-struct Mesh {
-    triangles: Vec<Tri>,
-}
 
 fn view(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
     draw.background().color(BLACK);
 
     let transform = |point: &Point3| -> Point3 {
-        model.camera.project(point, app.window_rect().wh())
+        model.camera.project(*point, app.window_rect().wh())
     };
 
-    for tri in &model.mesh.triangles {
+    for tri in &model.mesh {
         draw.polyline()
             .points(tri.iter().map(transform))
             .color(WHITE);
