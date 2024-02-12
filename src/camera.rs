@@ -1,5 +1,7 @@
-use nannou::prelude::{Mat4LookTo, Mat4, Point3, Vec2, Vec3, Key, App};
+use nannou::prelude::{Mat4LookTo, Mat4, Point3, Vec2, Vec3, Key};
 use std::f32::consts::{FRAC_PI_2, TAU};
+use nannou::state::Keys;
+
 const SPEED: f32 = 0.1;
 const SENSITIVITY: f32 = 0.003;
 const Z_NEAR: f32 = 0.1;
@@ -38,13 +40,13 @@ impl Camera {
         self.projection_matrix * Mat4::look_to_rh(self.position, forward, up)
     }
 
-    pub fn update(&mut self, app: &App) {
+    pub fn update(&mut self, keys: &Keys) {
         let mut translation = Vec3::ZERO;
 
         let right = self.right();
         let forward = right.cross(-Vec3::Y).normalize(); // "flat" forward vector -- not affected by pitch
 
-        for key in app.keys.down.iter() {
+        for key in keys.down.iter() {
             match key {
                 Key::W => translation += forward,
                 Key::S => translation -= forward,
@@ -63,7 +65,7 @@ impl Camera {
         self.projection_matrix = Mat4::perspective_rh(FOV, aspect_ratio, Z_NEAR, Z_FAR);
     }
 
-    pub fn project(&self, point: Point3, window_size: Vec2) -> Point3 {
+    pub fn project(&self, point: Point3) -> Point3 {
         let homogeneous = point.extend(1.0);
         let projected = self.matrix() * homogeneous;
         let perspective_divided = if projected.w == 0.0 {
@@ -71,7 +73,7 @@ impl Camera {
         } else {
             projected / projected.w
         };
-        0.5 * window_size.extend(1.0) * perspective_divided.truncate() // Scale to target dimensions
+        perspective_divided.truncate()
     }
 
     pub fn update_rotation(&mut self, delta: Vec2) {

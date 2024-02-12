@@ -116,7 +116,9 @@ fn view(app: &App, model: &Model, frame: Frame) {
     draw.background().color(BLACK);
 
     let transform = |point: &Point3| -> Point3 {
-        model.camera.project(*point, app.window_rect().wh())
+        let projected = model.camera.project(*point);
+        let scaled = 0.5 * app.window_rect().wh().extend(1.0) * projected;
+        scaled
     };
 
     for tri in &model.mesh {
@@ -139,7 +141,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
 }
 
 fn update(app: &App, model: &mut Model, _update: Update) {
-    model.camera.update(app);
+    model.camera.update(&app.keys);
 }
 
 fn event(_app: &App, model: &mut Model, event: Event) {
