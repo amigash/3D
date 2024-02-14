@@ -22,6 +22,12 @@ struct Model {
     camera: Camera,
 }
 
+fn surface_normal(tri: &Tri) -> Vec3 {
+    let a = tri[1] - tri[0];
+    let b = tri[2] - tri[0];
+    a.cross(b).normalize()
+}
+
 fn model(app: &App) -> Model {
     app
         .new_window()
@@ -52,23 +58,40 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
     draw.background().color(BLACK);
 
-    let transform = |point: &Point3| -> Point3 {
-        let projected = model.camera.project(*point);
-        let scaled = 0.5 * app.window_rect().wh().extend(1.0) * projected;
+    let matrix = model.camera.matrix();
+    let scale_factor = 0.5 * app.window_rect().wh().extend(1.0);
+
+    let transform = |point: &Point3| {
+        let homogeneous = point.extend(1.0);
+        let projected = matrix * homogeneous;
+        let perspective_divided = if projected.w == 0.0 {
+            projected
+        } else {
+            projected / projected.w
+        };
+        let scaled = scale_factor * perspective_divided.truncate();
         scaled
     };
 
-    for tri in &model.mesh {
-        draw.polyline()
-            .points(tri.iter().map(transform))
-            .color(WHITE);
-    }
+    let is_visible = |tri: &&Tri| {
+        let normal = surface_normal(tri);
+        let view_vector = model.camera.position - tri.centroid();
+        normal.dot(view_vector) >= 0.0
+    };
 
     let draw_axis = |axis: Vec3, color: Srgb<u8>| {
         draw.polyline()
             .color(color)
             .points([Vec3::ZERO, axis].iter().map(transform));
     };
+
+    for tri in model.mesh.iter().filter(is_visible) {
+        draw.polyline()
+            .points(tri.iter().map(transform))
+            .color(WHITE);
+
+        draw.line().xyz(tri.centroid().into());
+    }
 
     draw_axis(Vec3::X, RED);
     draw_axis(Vec3::Y, GREEN);

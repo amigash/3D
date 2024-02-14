@@ -9,7 +9,7 @@ const Z_FAR: f32 = 100.0;
 const FOV: f32 = FRAC_PI_2;
 
 pub struct Camera {
-    position: Point3,
+    pub position: Point3,
     rotation: Vec2,
     pub aspect_ratio: f32
 }
@@ -33,7 +33,7 @@ impl Camera {
         self.forward().cross(Vec3::Y).normalize()
     }
 
-    fn matrix(&self) -> Mat4 {
+    pub(crate) fn matrix(&self) -> Mat4 {
         let forward = self.forward();
         let right = self.right();
         let up = right.cross(forward).normalize();
@@ -59,16 +59,6 @@ impl Camera {
         }
 
         self.position += translation * SPEED;
-    }
-    pub fn project(&self, point: Point3) -> Point3 {
-        let homogeneous = point.extend(1.0);
-        let projected = self.matrix() * homogeneous;
-        let perspective_divided = if projected.w == 0.0 {
-            projected
-        } else {
-            projected / projected.w
-        };
-        perspective_divided.truncate()
     }
 
     pub fn update_rotation(&mut self, delta: Vec2) {
