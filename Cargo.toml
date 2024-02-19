@@ -6,7 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pixels = "0.13.0"
-winit = { version = "0.29", features = ["rwh_05"]}
-winit_input_helper = "0.15.3"
+pix-win-loop = "0.4.0"
 clipline = "0.2.0"
+glam = "0.25.0"

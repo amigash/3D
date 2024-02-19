@@ -1,141 +1,136 @@
-#![deny(clippy::all)]
-#![forbid(unsafe_code)]
+#![warn(clippy::pedantic)]
+mod draw;
+mod camera;
 
-use clipline::clipline;
-use pixels::{Error, Pixels, SurfaceTexture};
-use winit::{
-    dpi::LogicalSize,
-    event::WindowEvent,
-    event_loop::EventLoop,
-    keyboard::KeyCode,
-    window::WindowBuilder,
-    event::Event
+use glam::Vec3;
+use crate::{
+    draw::*,
 };
-use winit_input_helper::WinitInputHelper;
 
-const WIDTH: u32 = 80;
-const HEIGHT: u32 = 60;
-const SCREEN: ((i16, i16), (i16, i16)) = ((0, 0), (WIDTH as i16, HEIGHT as i16));
+use pix_win_loop::{
+    start, App, Context, Duration, InputState, NamedKey, PhysicalSize, Pixels, Result,
+    WindowBuilder,
+};
 
 
-/// Representation of the application state. In this example, a box will bounce around the screen.
-struct World {
+const WIDTH: u32 = 40;
+const HEIGHT: u32 = 30;
+const SCALE: u32 = 10;
+
+struct Triangle {
+    a: Vec3,
+    b: Vec3,
+    c: Vec3
 }
 
-fn main() -> Result<(), Error> {
-    let event_loop = EventLoop::new().unwrap();
-    let mut input = WinitInputHelper::new();
-    let window = {
-        let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
-        WindowBuilder::new()
-            .with_title("Hello Pixels")
-            .with_inner_size(size)
-            .with_min_inner_size(size)
-            .build(&event_loop)
-            .unwrap()
-    };
+impl IntoIterator for Triangle {
+    type Item = Vec3;
+    type IntoIter = std::vec::IntoIter<Vec3>;
 
-    let mut pixels = {
-        let window_size = window.inner_size();
-        let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
-        Pixels::new(WIDTH, HEIGHT, surface_texture)?
-    };
-    let mut world = World::new();
-
-    event_loop.run(move |event, elwt| {
-        // Draw the current frame
-        if let Event::WindowEvent {event: WindowEvent::RedrawRequested, ..} = event {
-            let frame = pixels.frame_mut();
-            world.clear(frame);
-            let tri = ((10, 10), (25, 20), (30, 10));
-            world.draw_triangle(frame, tri.0, tri.1, tri.2, [255, 255, 0, 255]);
-            world.draw_filled_flat_triangle(frame, tri.1, tri.0.0, tri.2.0, tri.0.1, [255, 0, 0, 255]);
-            if pixels.render().is_err() {
-                elwt.exit();
-            }
-        }
-
-        // Handle input events
-        if input.update(&event) {
-            // Close events
-            if input.key_pressed(KeyCode::Escape) || input.close_requested() || input.destroyed() {
-                elwt.exit();
-            }
-
-
-            // Resize the window
-            if let Some(size) = input.window_resized() {
-                if pixels.resize_surface(size.width, size.height).is_err() {
-                    elwt.exit();
-                }
-            }
-
-            // Update internal state and request a redraw
-            world.update();
-            window.request_redraw();
-        }
-    }).unwrap();
-    Ok(())
+    fn into_iter(self) -> Self::IntoIter {
+        vec![self.a, self.b, self.c].into_iter()
+    }
 }
 
-impl World {
-    fn new() -> Self {
-        Self {
+const fn vec3(x: f32, y: f32, z: f32) -> Vec3 {
+    Vec3::new(x, y, z)
+}
+
+const fn tri(a: Vec3, b: Vec3, c: Vec3, ) -> Triangle {
+    Triangle { a, b, c }
+}
+
+impl Triangle {
+    fn surface_normal(&self) -> Vec3 {
+        let a = self.b - self.a;
+        let b = self.c - self.a;
+        a.cross(b).normalize()
+    }
+}
+
+struct Application {
+    x_shift: i32,
+    y_shift: i32,
+    mesh: Vec<Triangle>
+}
+
+impl App for Application {
+    fn update(&mut self, ctx: &mut Context) -> Result<()> {
+
+        if ctx.input.is_logical_key_pressed(NamedKey::Escape) {
+            ctx.exit();
+            return Ok(())
         }
-    }
-
-    fn update(&mut self) {
-    }
-
-    fn draw_pixel(&self, frame: &mut [u8], x: i16, y: i16, rgba: [u8; 4]) {
-        let index = 4 * (x + y * WIDTH as i16) as usize;
-        frame[index..index + 4].copy_from_slice(&rgba);
-    }
-
-    fn clear(&self, frame: &mut [u8]) {
-        for pixel in frame.chunks_exact_mut(4) {
-            pixel.copy_from_slice(&[0, 0, 0, 0]);
+        for (key, input_state) in ctx.input.logical_keys() {
+            let InputState::Pressed = input_state else {
+                continue;
+            };
+            match key {
+                NamedKey::ArrowUp => self.y_shift -= 1,
+                NamedKey::ArrowDown => self.y_shift += 1,
+                NamedKey::ArrowLeft => self.x_shift -= 1,
+                NamedKey::ArrowRight => self.x_shift += 1,
+                _ => {}
+            }
         }
+
+        Ok(())
     }
 
-
-    fn draw_line(&self, frame: &mut [u8], start: (i16, i16), end: (i16, i16), rgba: [u8; 4]) {
-        clipline((start, end), SCREEN, |x, y| {
-            self.draw_pixel(frame, x, y, rgba);
-        });
+    fn render(&mut self, pixels: &mut Pixels, _blending_factor: f64) -> Result<()> {
+        let frame = pixels.frame_mut();
+        let triangle = ((10 + self.x_shift, 10 + self.y_shift), (30, 15), (10, 15));
+        clear(frame);
+        draw_triangle(frame,
+                      WIDTH as i32, HEIGHT as i32,
+                      triangle.0.0, triangle.0.1,
+                      triangle.1.0, triangle.1.1,
+                      triangle.2.0, triangle.2.1,
+                      [255, 255, 255, 255]);
+        pixels.render()?;
+        Ok(())
     }
+}
 
-    fn draw_triangle(&self, frame: &mut [u8], a: (i16, i16), b: (i16, i16), c: (i16, i16), rgba: [u8; 4]) {
-        self.draw_line(frame, a, b, rgba);
-        self.draw_line(frame, b, c, rgba);
-        self.draw_line(frame, c, a, rgba);
-    }
+fn main() -> Result<()> {
+    let mesh = vec![
+        // Front
+        tri(vec3(0.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(1.0, 1.0, 0.0)),
+        tri(vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 0.0), vec3(1.0, 0.0, 0.0)),
+        // Back
+        tri(vec3(0.0, 0.0, 1.0), vec3(1.0, 1.0, 1.0), vec3(0.0, 1.0, 1.0)),
+        tri(vec3(0.0, 0.0, 1.0), vec3(1.0, 0.0, 1.0), vec3(1.0, 1.0, 1.0)),
+        // Top
+        tri(vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 1.0), vec3(1.0, 1.0, 1.0)),
+        tri(vec3(0.0, 1.0, 0.0), vec3(1.0, 1.0, 1.0), vec3(1.0, 1.0, 0.0)),
+        // Bottom
+        tri(vec3(0.0, 0.0, 0.0), vec3(1.0, 0.0, 1.0), vec3(0.0, 0.0, 1.0)),
+        tri(vec3(0.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0), vec3(1.0, 0.0, 1.0)),
+        // Left
+        tri(vec3(0.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), vec3(0.0, 1.0, 1.0)),
+        tri(vec3(0.0, 0.0, 0.0), vec3(0.0, 1.0, 1.0), vec3(0.0, 1.0, 0.0)),
+        // Right
+        tri(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0), vec3(1.0, 0.0, 1.0)),
+        tri(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 0.0), vec3(1.0, 1.0, 1.0)),
+    ];
 
-    fn draw_filled_flat_triangle(&self, frame: &mut [u8], a: (i16, i16), b_x: i16, c_x: i16, bc_y: i16, rgba: [u8; 4]) {
-        let edge_points = |p_x: i16| {
-            let mut side = vec![];
-            let mut prev = a;
+    let window_builder = WindowBuilder::new()
+        .with_inner_size(PhysicalSize::new(WIDTH * SCALE, HEIGHT * SCALE))
+        .with_min_inner_size(PhysicalSize::new(WIDTH, HEIGHT));
 
-            clipline((a, (p_x, bc_y)), SCREEN, |x, y| {
-                if y != prev.1 {
-                    side.push(prev);
-                }
-                prev = (x, y);
-            });
-            side.push(prev);
-            side
-        };
-        let side_a = edge_points(b_x);
-        let side_b = edge_points(c_x);
+    let pixel_buffer_size = PhysicalSize::new(WIDTH, HEIGHT);
+    let target_frame_time = Duration::from_secs_f32(1. / 120.); // 120 fps
+    let max_frame_time = Duration::from_secs_f32(0.1);
 
-        for (point_a, point_b) in side_a.into_iter().zip(side_b) {
-            self.draw_line(frame, point_a,  point_b, rgba);
-        }
-    }
-
-    // fn draw_filled_triangle(&self, frame: &mut [u8], a: (i16, i16), b: (i16, i16), c: (i16, i16), rgba: [u8; 4]) {
-    //
-    //
-    //
-    // }
+    start(
+        window_builder,
+        Application {
+            x_shift: 0,
+            y_shift: 0,
+            mesh
+        },
+        pixel_buffer_size,
+        target_frame_time,
+        max_frame_time,
+    )
 }
