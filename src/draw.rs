@@ -1,6 +1,6 @@
 use clipline::clipline;
 
-fn draw_pixel(
+fn pixel(
     frame: &mut [u8],
     width: i32,
     x: i32, y: i32,
@@ -17,7 +17,7 @@ pub fn clear(frame: &mut [u8]) {
     }
 }
 
-fn draw_line(
+fn line(
     frame: &mut [u8],
     width: i32,
     height: i32,
@@ -29,12 +29,12 @@ fn draw_line(
         ((x0, y0), (x1, y1)),
         ((0, 0), (width - 1, height - 1)),
         |x, y| {
-            draw_pixel(frame, width, x, y, rgba);
+            pixel(frame, width, x, y, rgba);
         },
     );
 }
 
-pub fn draw_triangle(
+pub fn triangle(
     frame: &mut [u8],
     width: i32,
     height: i32,
@@ -43,7 +43,7 @@ pub fn draw_triangle(
     x2: i32, y2: i32,
     rgba: [u8; 4]
 ) {
-    draw_line(frame, width, height, x0, y0, x1, y1, rgba);
-    draw_line(frame, width, height, x1, y1, x2, y2, rgba);
-    draw_line(frame, width, height, x2, y2, x0, y0, rgba);
+    line(frame, width, height, x0, y0, x1, y1, rgba);
+    line(frame, width, height, x1, y1, x2, y2, rgba);
+    line(frame, width, height, x2, y2, x0, y0, rgba);
 }

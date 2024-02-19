@@ -1,6 +1,6 @@
 use std::f32::consts::{FRAC_PI_2, TAU};
 use glam::{Mat4, Vec2, Vec3};
-use pix_win_loop::KeyCode;
+use win_loop::winit::keyboard::KeyCode;
 
 
 const SPEED: f32 = 0.1;
@@ -47,7 +47,7 @@ impl Camera {
         let right = self.right();
         let forward = right.cross(-Vec3::Y).normalize(); // "flat" forward vector -- not affected by pitch
 
-        for key in keys.iter() {
+        for key in keys {
             match key {
                 KeyCode::KeyW => translation += forward,
                 KeyCode::KeyS => translation -= forward,

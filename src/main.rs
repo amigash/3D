@@ -1,93 +1,98 @@
 #![warn(clippy::pedantic)]
 mod draw;
 mod camera;
+mod triangle;
 
+use std::{
+    sync::Arc,
+    time::Duration
+};
 use glam::Vec3;
-use crate::{
-    draw::*,
-};
-
-use pix_win_loop::{
-    start, App, Context, Duration, InputState, NamedKey, PhysicalSize, Pixels, Result,
-    WindowBuilder,
-};
-
-
-const WIDTH: u32 = 40;
-const HEIGHT: u32 = 30;
-const SCALE: u32 = 10;
-
-struct Triangle {
-    a: Vec3,
-    b: Vec3,
-    c: Vec3
-}
-
-impl IntoIterator for Triangle {
-    type Item = Vec3;
-    type IntoIter = std::vec::IntoIter<Vec3>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        vec![self.a, self.b, self.c].into_iter()
+use win_loop::{
+    *,
+    anyhow::Result,
+    winit::{
+        dpi::PhysicalSize,
+        event_loop::EventLoop,
+        keyboard::NamedKey,
+        window::WindowBuilder
     }
-}
+};
+use pixels::*;
+use win_loop::winit::event::{Event, WindowEvent};
+use win_loop::winit::window::Window;
+use crate::{draw::*, triangle::*};
+
+const WIDTH: u32 = 800;
+const HEIGHT: u32 = 600;
+const SCALE: u32 = 5;
 
 const fn vec3(x: f32, y: f32, z: f32) -> Vec3 {
     Vec3::new(x, y, z)
 }
 
-const fn tri(a: Vec3, b: Vec3, c: Vec3, ) -> Triangle {
-    Triangle { a, b, c }
-}
-
-impl Triangle {
-    fn surface_normal(&self) -> Vec3 {
-        let a = self.b - self.a;
-        let b = self.c - self.a;
-        a.cross(b).normalize()
-    }
-}
-
 struct Application {
-    x_shift: i32,
-    y_shift: i32,
-    mesh: Vec<Triangle>
+    mesh: Vec<Triangle>,
+    pixels: Pixels,
+    window: Arc<Window>,
+    tri: Triangle,
+    scale: u32
 }
+
 
 impl App for Application {
     fn update(&mut self, ctx: &mut Context) -> Result<()> {
 
         if ctx.input.is_logical_key_pressed(NamedKey::Escape) {
             ctx.exit();
-            return Ok(())
         }
         for (key, input_state) in ctx.input.logical_keys() {
-            let InputState::Pressed = input_state else {
+            let InputState::Down = input_state else {
                 continue;
             };
+            let mut movement = vec3(0.0, 0.0, 0.0);
+
             match key {
-                NamedKey::ArrowUp => self.y_shift -= 1,
-                NamedKey::ArrowDown => self.y_shift += 1,
-                NamedKey::ArrowLeft => self.x_shift -= 1,
-                NamedKey::ArrowRight => self.x_shift += 1,
+                NamedKey::ArrowUp => movement += vec3(0.0, -1.0, 0.0),
+                NamedKey::ArrowDown => movement += vec3(0.0, 1.0, 0.0),
+                NamedKey::ArrowLeft => movement += vec3(-1.0, 0.0, 0.0),
+                NamedKey::ArrowRight => movement += vec3(1.0, 0.0, 0.0),
                 _ => {}
-            }
+            };
+            self.tri += movement;
         }
 
         Ok(())
     }
 
-    fn render(&mut self, pixels: &mut Pixels, _blending_factor: f64) -> Result<()> {
-        let frame = pixels.frame_mut();
-        let triangle = ((10 + self.x_shift, 10 + self.y_shift), (30, 15), (10, 15));
+    fn render(&mut self, _blending_factor: f64) -> Result<()> {
+        let frame = self.pixels.frame_mut();
+        let tri = &self.tri;
+        let size = self.window.inner_size();
         clear(frame);
-        draw_triangle(frame,
-                      WIDTH as i32, HEIGHT as i32,
-                      triangle.0.0, triangle.0.1,
-                      triangle.1.0, triangle.1.1,
-                      triangle.2.0, triangle.2.1,
-                      [255, 255, 255, 255]);
-        pixels.render()?;
+        triangle(frame,
+                 (size.width / self.scale) as i32, (size.height / self.scale) as i32,
+            tri.a.x as i32, tri.a.y as i32,
+            tri.b.x as i32, tri.b.y as i32,
+            tri.c.x as i32, tri.c.y as i32,
+            [255, 255, 255, 255]);
+        self.pixels.render()?;
+        Ok(())
+    }
+
+    fn handle(&mut self, event: &Event<()>) -> Result<()> {
+        match event {
+            Event::WindowEvent {event, .. } => {
+                match event {
+                    WindowEvent::Resized(size) => {
+                        self.pixels.resize_surface(size.width, size.height)?;
+                        self.pixels.resize_buffer(size.width / self.scale, size.height / self.scale)?;
+                    },
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
         Ok(())
     }
 }
@@ -114,22 +119,44 @@ fn main() -> Result<()> {
         tri(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 0.0), vec3(1.0, 1.0, 1.0)),
     ];
 
-    let window_builder = WindowBuilder::new()
-        .with_inner_size(PhysicalSize::new(WIDTH * SCALE, HEIGHT * SCALE))
-        .with_min_inner_size(PhysicalSize::new(WIDTH, HEIGHT));
+    let event_loop = EventLoop::new()?;
 
-    let pixel_buffer_size = PhysicalSize::new(WIDTH, HEIGHT);
-    let target_frame_time = Duration::from_secs_f32(1. / 120.); // 120 fps
+    let window = Arc::new(WindowBuilder::new()
+        .with_inner_size(PhysicalSize::new(WIDTH, HEIGHT))
+        .build(&event_loop)?);
+
+
+    let target_frame_time = Duration::from_secs_f32(1. / 120.); // 60 fps
     let max_frame_time = Duration::from_secs_f32(0.1);
 
+    let pixel_buffer_size = PhysicalSize::new(WIDTH / SCALE, HEIGHT / SCALE);
+    let surface_texture = SurfaceTexture::new(window.inner_size().width, window.inner_size().height, &window);
+
+    let pixels = Pixels::new(
+        pixel_buffer_size.width,
+        pixel_buffer_size.height,
+        surface_texture,
+    )?;
+
+    let tri = tri(
+        vec3(10.0, 10.0, 0.0),
+        vec3(30.0, 15.0, 0.0),
+        vec3(10.0, 15.0, 0.0)
+    );
+
+
+    let app = Application {
+        mesh,
+        pixels,
+        window: window.clone(),
+        tri,
+        scale: SCALE
+    };
+
     start(
-        window_builder,
-        Application {
-            x_shift: 0,
-            y_shift: 0,
-            mesh
-        },
-        pixel_buffer_size,
+        event_loop,
+        window,
+        app,
         target_frame_time,
         max_frame_time,
     )
