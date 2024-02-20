@@ -7,16 +7,6 @@ pub struct Triangle {
     pub b: Vec3,
     pub c: Vec3
 }
-
-impl IntoIterator for Triangle {
-    type Item = Vec3;
-    type IntoIter = std::vec::IntoIter<Vec3>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        vec![self.a, self.b, self.c].into_iter()
-    }
-}
-
 impl Add<Vec3> for Triangle {
     type Output = Self;
 
@@ -58,5 +48,9 @@ impl Triangle {
         let a = self.b - self.a;
         let b = self.c - self.a;
         a.cross(b).normalize()
+    }
+
+    pub fn centroid(&self) -> Vec3 {
+        (self.a + self.b + self.c) / 3.0
     }
 }
