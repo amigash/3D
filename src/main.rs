@@ -14,9 +14,9 @@ use std::{
     fs::File
 };
 use glam::{Vec2, vec2, Vec3};
-use pixels::*;
+use pixels::{Pixels, SurfaceTexture};
 use win_loop::{
-    *,
+    App, Context, InputState, start,
     anyhow::Result,
     winit::{
         event::{Event, WindowEvent},
@@ -30,7 +30,7 @@ use win_loop::{
         window::{CursorGrabMode, Fullscreen}
     }
 };
-use crate::{draw::*, triangle::*, camera::*};
+use crate::{draw::{clear, line, pixel, triangle}, triangle::Triangle, camera::Camera};
 
 const WIDTH: u32 = 1920;
 const HEIGHT: u32 = 1080;
@@ -185,7 +185,7 @@ fn main() -> Result<()> {
     window.set_cursor_grab(CursorGrabMode::Confined)?;
     window.set_cursor_visible(false);
 
-    let target_frame_time = Duration::from_secs_f32(1. / 120.); // 60 fps
+    let target_frame_time = Duration::from_secs_f32(1. / 120.); // 120 fps
     let max_frame_time = Duration::from_secs_f32(0.1);
 
     let pixel_buffer_size = PhysicalSize::new(WIDTH / SCALE, HEIGHT / SCALE);
