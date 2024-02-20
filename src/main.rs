@@ -13,7 +13,7 @@ use std::{
     f32::consts::TAU,
     fs::File
 };
-use glam::{Vec2, vec2, Vec3};
+use glam::{ivec3, IVec3, vec2, Vec2, Vec3};
 use pixels::{Pixels, SurfaceTexture};
 use win_loop::{
     App, Context, InputState, start,
@@ -69,24 +69,23 @@ impl App for Application {
 
     fn render(&mut self, _blending_factor: f64) -> Result<()> {
         let frame = self.pixels.frame_mut();
-        let size = self.window.inner_size();
+        let size = {
+            let inner_size = self.window.inner_size().cast::<i32>();
+            ivec3(inner_size.width, inner_size.height, 0) / (SCALE as i32)
+        };
         clear(frame);
 
         let matrix = self.camera.matrix();
-        let scale_factor = 0.5 * vec3(size.width as f32, size.height as f32,0.0) / (SCALE as f32);
+        let scale_factor = 0.5 * size.as_vec3();
 
         let transform = |point: &Vec3| {
             let homogeneous = point.extend(1.0);
             let projected = matrix * homogeneous;
-            let perspective_divided = if projected.w == 0.0 {
-                projected
-            } else {
-                projected / projected.w
-            };
-            let flipped = vec3(perspective_divided.x, -perspective_divided.y, perspective_divided.z);
-            let scaled = scale_factor * flipped;
-            let centered = scaled + 0.5 * vec3(size.width as f32, size.height as f32, 0.0) / (SCALE as f32);
-            centered
+            let perspective_divided = projected / projected.w;
+            let flipped = perspective_divided.truncate() * vec3(1.0, -1.0, 1.0);
+            let centered = flipped + 1.0;
+            let scaled = centered * scale_factor;
+            scaled
         };
 
         let transform_triangle = |triangle: &Triangle| {
@@ -97,22 +96,33 @@ impl App for Application {
             }
         };
 
+
+        let is_on_screen = |point: IVec3| {
+            point.x > 0 && point.y > 0 && point.x < size.x && point.y < size.y
+        };
+
+        let is_on_screen_triangle = |triangle: &Triangle| {
+            [triangle.a, triangle.b, triangle.c].iter().all(|vertex| is_on_screen(vertex.as_ivec3()))
+        };
+
         let is_visible = |triangle: &&Triangle| {
             let normal = triangle.surface_normal();
             let view_vector = self.camera.position - triangle.centroid();
             normal.dot(view_vector) >= 0.0
         };
 
-        let draw_axis = |frame_: &mut [u8] ,axis: Vec3, color: [u8; 4]| {
-            let origin = transform(&Vec3::ZERO);
-            let transformed = transform(&axis);
-            line(
-                frame_,
-                (size.width / SCALE) as i32, (size.height / SCALE) as i32,
-                origin.x as i32, origin.y as i32,
-                transformed.x as i32, transformed.y as i32,
-                color
-            )
+        let draw_axis = |frame_: &mut [u8], axis: Vec3, color: [u8; 4]| {
+            let origin = transform(&Vec3::ZERO).round().as_ivec3();
+            let transformed = transform(&axis).round().as_ivec3();
+            if is_on_screen(origin) && is_on_screen(transformed) {
+                line(
+                    frame_,
+                    size.truncate(),
+                    origin.truncate(),
+                    transformed.truncate(),
+                    color
+                )
+            }
         };
 
         let time = self.time.elapsed().as_secs_f32();
@@ -122,13 +132,14 @@ impl App for Application {
         for tri in self.mesh.iter()
             .filter(is_visible)
             .map(transform_triangle)
+            .filter(is_on_screen_triangle)
         {
             triangle(
                 frame,
-                (size.width / SCALE) as i32, (size.height / SCALE) as i32,
-                tri.a.x as i32, tri.a.y as i32,
-                tri.b.x as i32, tri.b.y as i32,
-                tri.c.x as i32, tri.c.y as i32,
+                size.truncate(),
+                tri.a.round().as_ivec3().truncate(),
+                tri.b.round().as_ivec3().truncate(),
+                tri.c.round().as_ivec3().truncate(),
                 rgba);
         }
         draw_axis(frame, Vec3::X, [255, 0, 0, 255]);
@@ -137,8 +148,8 @@ impl App for Application {
 
         pixel(
             frame,
-            (size.width / SCALE) as i32,
-            (size.width / (2 * SCALE)) as i32, (size.height / (2 * SCALE)) as i32,
+            size.x,
+            (size / 2).truncate(),
             [255, 255, 255, 255]
         );
 
@@ -205,7 +216,7 @@ fn main() -> Result<()> {
         window: window.clone(),
         scale: SCALE,
         time,
-        camera: Camera::new(vec3(0.0, 0.0, 0.0), Vec2::ZERO, 0.0)
+        camera: Camera::new(Vec3::ZERO, Vec2::ZERO, 0.0)
     };
 
     start(

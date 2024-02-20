@@ -1,12 +1,13 @@
 use clipline::clipline;
+use glam::{IVec2, UVec2};
 
 pub fn pixel(
     frame: &mut [u8],
     width: i32,
-    x: i32, y: i32,
+    point: IVec2,
     rgba: [u8; 4]
 ) {
-    let index = 4 * (x + y * width) as usize;
+    let index = 4 * (point.x + point.y * width) as usize;
     // SAFETY: Clipline only calls draw_pixel with valid coordinates
     unsafe {frame.get_unchecked_mut(index..index + 4)}.copy_from_slice(&rgba);
 }
@@ -17,11 +18,12 @@ pub fn clear(frame: &mut [u8]) {
     }
 }
 
+#[allow(dead_code)]
 pub fn clear_rectangle(frame: &mut [u8], width: i32, height: i32, x: i32, y: i32, w: i32, h: i32) {
     debug_assert!(x >= 0 && y >= 0 && x + w <= width && y + h <= height);
     for j in y..y + h {
         for i in x..x + w {
-            pixel(frame, width, i, j, [0, 0, 0, 0]);
+            pixel(frame, width, IVec2::from((i, j)), [0, 0, 0, 0]);
         }
     }
 
@@ -29,32 +31,80 @@ pub fn clear_rectangle(frame: &mut [u8], width: i32, height: i32, x: i32, y: i32
 
 pub fn line(
     frame: &mut [u8],
-    width: i32, height: i32,
-    x0: i32, y0: i32,
-    x1: i32, y1: i32,
+    size: IVec2,
+    a: IVec2,
+    b: IVec2,
     rgba: [u8; 4]
 ) {
-    if [x0, y0, x1, y1].iter().any(|&c| c.abs() > 23000) { // hack to prevent overflow
-        return;
-    }
     clipline(
-        ((x0, y0), (x1, y1)),
-        ((0, 0), (width - 1, height - 1)),
+        (a.into(), b.into()),
+        ((0, 0), (size - 1).into()),
         |x, y| {
-            pixel(frame, width, x, y, rgba);
+            pixel(frame, size.x, IVec2::from((x, y)), rgba);
         },
     );
 }
 
 pub fn triangle(
     frame: &mut [u8],
-    width: i32, height: i32,
-    x0: i32, y0: i32,
-    x1: i32, y1: i32,
-    x2: i32, y2: i32,
+    size: IVec2,
+    a: IVec2,
+    b: IVec2,
+    c: IVec2,
     rgba: [u8; 4]
 ) {
-    line(frame, width, height, x0, y0, x1, y1, rgba);
-    line(frame, width, height, x1, y1, x2, y2, rgba);
-    line(frame, width, height, x2, y2, x0, y0, rgba);
+    line(frame, size, a, b, rgba);
+    line(frame, size, b, c, rgba);
+    line(frame, size, c, a, rgba);
+}
+
+struct Draw<const N: usize, const M: usize> {
+    frame: [u8; N * M],
+    dirty: Option<UVec2>
+}
+
+impl<const N: usize, const M: usize> Draw<N, M> {
+    fn to_frame(&self, frame: &mut [u8], width: usize, height: usize) {
+        if width == N && height == M {
+            frame.copy_from_slice(&self.frame);
+        }
+    }
+
+    fn clear(&mut self) {
+        for pixel in self.frame.chunks_exact_mut(4) {
+            pixel.copy_from_slice(&[0, 0, 0, 0]);
+        }
+    }
+
+    fn pixel(&mut self, point: IVec2, rgba: [u8; 4]) {
+        let index = 4 * (point.x + point.y * N as i32) as usize;
+        // SAFETY: Clipline only calls draw_pixel with valid coordinates
+        unsafe {self.frame.get_unchecked_mut(index..index + 4)}.copy_from_slice(&rgba);
+
+    }
+
+    fn line(&mut self, a: IVec2, b: IVec2, rgba: [u8; 4]) {
+        clipline(
+            (a.into(), b.into()),
+            ((0, 0), (N as i32 - 1, M as i32 - 1)),
+            |x, y| {
+                self.pixel(IVec2::from((x, y)), rgba);
+            },
+        );
+    }
+
+    fn triangle(&mut self, a: IVec2, b: IVec2, c: IVec2, rgba: [u8; 4]) {
+        self.line(a, b, rgba);
+        self.line(b, c, rgba);
+        self.line(c, a, rgba);
+    }
+
+    fn clear_rectangle(&mut self, x: i32, y: i32, w: i32, h: i32) {
+        debug_assert!(x >= 0 && y >= 0 && x + w <= N as i32 && y + h <= M as i32);
+        for j in y..y + h {
+            for i in x..x + w {
+                self.pixel(IVec2::from((i, j)), [0, 0, 0, 0]);
+            }
+        }
+    }
 }
