@@ -1,11 +1,11 @@
+use glam::vec3;
 use std::{
     fs::File,
-    io::{BufRead, BufReader}
+    io::{BufRead, BufReader},
 };
-use glam::vec3;
 
-use win_loop::anyhow::Result;
 use crate::triangle::Triangle;
+use win_loop::anyhow::Result;
 
 pub fn load_from_obj_file(file: File) -> Result<Vec<Triangle>> {
     let reader = BufReader::new(file);
@@ -26,7 +26,11 @@ pub fn load_from_obj_file(file: File) -> Result<Vec<Triangle>> {
                 let i: usize = words.next().unwrap().parse().unwrap();
                 let j: usize = words.next().unwrap().parse().unwrap();
                 let k: usize = words.next().unwrap().parse().unwrap();
-                mesh.push(Triangle::new(vertices[i - 1], vertices[j - 1], vertices[k - 1]));
+                mesh.push(Triangle::new([
+                    vertices[i - 1],
+                    vertices[j - 1],
+                    vertices[k - 1],
+                ]));
             }
             _ => {}
         }

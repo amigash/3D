@@ -1,7 +1,6 @@
-use std::f32::consts::{FRAC_PI_2, TAU};
 use glam::{Mat4, Vec2, Vec3};
+use std::f32::consts::{FRAC_PI_2, TAU};
 use win_loop::winit::keyboard::KeyCode;
-
 
 const SPEED: f32 = 0.1;
 const SENSITIVITY: f32 = 0.003;
@@ -12,7 +11,7 @@ const FOV: f32 = FRAC_PI_2;
 pub struct Camera {
     pub position: Vec3,
     rotation: Vec2,
-    pub aspect_ratio: f32
+    pub aspect_ratio: f32,
 }
 
 impl Camera {
@@ -20,7 +19,7 @@ impl Camera {
         Camera {
             position,
             rotation,
-            aspect_ratio
+            aspect_ratio,
         }
     }
 
@@ -38,7 +37,8 @@ impl Camera {
         let forward = self.forward();
         let right = self.right();
         let up = right.cross(forward).normalize();
-        Mat4::perspective_rh(FOV, self.aspect_ratio, Z_NEAR, Z_FAR) * Mat4::look_to_rh(self.position, forward, up)
+        Mat4::perspective_rh(FOV, self.aspect_ratio, Z_NEAR, Z_FAR)
+            * Mat4::look_to_rh(self.position, forward, up)
     }
 
     pub fn update(&mut self, keys: &[KeyCode]) {

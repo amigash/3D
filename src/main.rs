@@ -1,38 +1,44 @@
 #![warn(clippy::pedantic)]
 extern crate core;
 
-mod draw;
 mod camera;
-mod triangle;
+mod draw;
 mod mesh;
+mod triangle;
 
-use std::{
-    sync::Arc,
-    time::{
-        Duration,
-        Instant
-    },
-    f32::consts::TAU,
-    fs::File
-};
-use glam::{ivec3, IVec3, vec2, Vec2, Vec3, vec3};
+use crate::{camera::Camera, draw::Draw, triangle::Triangle};
+use glam::{ivec2, vec2, vec3, IVec3, Vec2, Vec3, Vec4};
 use pixels::{Pixels, SurfaceTexture};
-use win_loop::{
-    App, Context, InputState, start,
-    anyhow::Result,
-    winit::{
-        event::{Event, WindowEvent},
-        dpi::PhysicalSize,
-        event_loop::EventLoop,
-        keyboard::NamedKey,
-        window::WindowBuilder,
-        event::DeviceEvent,
-        window::Window,
-        keyboard::KeyCode,
-        window::{CursorGrabMode, Fullscreen}
-    }
+use std::{
+    f32::consts::TAU,
+    fs::File,
+    sync::Arc,
+    time::{Duration, Instant},
 };
-use crate::{triangle::Triangle, camera::Camera, draw::Draw};
+use win_loop::{
+    anyhow::Result,
+    start,
+    winit::{
+        dpi::PhysicalSize,
+        event::{
+            DeviceEvent,
+            Event,
+            WindowEvent
+        },
+        event_loop::EventLoop,
+        keyboard::{
+            KeyCode,
+            NamedKey
+        },
+        window::{
+            Window,
+            WindowBuilder,
+            CursorGrabMode,
+            Fullscreen
+        }
+    },
+    App, Context, InputState,
+};
 
 const WIDTH: u32 = 1920;
 const HEIGHT: u32 = 1080;
@@ -45,18 +51,18 @@ struct Application {
     scale: u32,
     time: Instant,
     camera: Camera,
-    draw: Draw
+    draw: Draw,
 }
-
 
 impl App for Application {
     fn update(&mut self, ctx: &mut Context) -> Result<()> {
-
         if ctx.input.is_logical_key_pressed(NamedKey::Escape) {
             ctx.exit();
         }
 
-        let keys: Vec<KeyCode> = ctx.input.physical_keys()
+        let keys: Vec<KeyCode> = ctx
+            .input
+            .physical_keys()
             .iter()
             .filter(|(_, input_state)| matches!(input_state, InputState::Down))
             .map(|(&key_code, _)| key_code)
@@ -69,76 +75,79 @@ impl App for Application {
     fn render(&mut self, _blending_factor: f64) -> Result<()> {
         let size = {
             let inner_size = self.window.inner_size().cast::<i32>();
-            ivec3(inner_size.width, inner_size.height, 0) / (SCALE as i32)
+            (ivec2(inner_size.width, inner_size.height) / (SCALE as i32)).extend(1)
         };
+
+        let time = self.time.elapsed().as_secs_f32();
+        let rgb: Vec<u8> = (0..3)
+            .map(|i| ((TAU * (time + i as f32 / 3.0)).sin() * 127.5 + 127.5).round() as u8)
+            .collect();
+        let rgba = [rgb[0], rgb[1], rgb[2], 255];
 
         let matrix = self.camera.matrix();
         let scale_factor = 0.5 * size.as_vec3();
 
-        let transform = |point: &Vec3| {
-            let homogeneous = point.extend(1.0);
-            let projected = matrix * homogeneous;
-            let perspective_divided = projected / projected.w;
-            let flipped = perspective_divided.truncate() * vec3(1.0, -1.0, 1.0);
+        let project = |point: Vec3| matrix * point.extend(1.0);
+        let ahead_of = |point: &Vec4| point.z > 0.01;
+
+        let transform = |point: Vec4| {
+            let perspective_divided = (point / point.w).truncate();
+            let flipped = perspective_divided * vec3(1.0, -1.0, 1.0);
             let centered = flipped + 1.0;
             let scaled = centered * scale_factor;
-            scaled
+            scaled.round().as_ivec3()
         };
 
-        let transform_triangle = |triangle: &Triangle| {
-            Triangle {
-                a: transform(&triangle.a),
-                b: transform(&triangle.b),
-                c: transform(&triangle.c),
-                normal: transform(&triangle.normal)
-            }
-        };
-
-
-        let is_on_screen = |point: IVec3| {
+        let is_on_screen = |point: &IVec3| {
             point.x > 0 && point.y > 0 && point.x < size.x && point.y < size.y
         };
 
-        let is_on_screen_triangle = |triangle: &Triangle| {
-            [triangle.a, triangle.b, triangle.c].iter().all(|vertex| is_on_screen(vertex.as_ivec3()))
-        };
-
         let is_visible = |triangle: &&Triangle| {
-            triangle.normal.dot(self.camera.position - triangle.centroid()) >= 0.0
+            triangle
+                .normal
+                .dot(self.camera.position - triangle.centroid())
+                >= 0.0
         };
 
-        let time = self.time.elapsed().as_secs_f32();
-        let rgb: Vec<u8> = (0..3).map(|i| ((TAU * (time + i as f32 / 3.0)).sin() * 127.5 + 127.5).round() as u8).collect();
-        let rgba = [rgb[0], rgb[1], rgb[2], 255];
 
-        for tri in self.mesh.iter()
+        for points in self
+            .mesh
+            .iter()
             .filter(is_visible)
-            .map(transform_triangle)
-            .filter(is_on_screen_triangle)
+            .map(|triangle| triangle.points.map(project))
+            .filter(|p| p.iter().all(ahead_of))
+            .map(|v| v.map(transform))
+            .filter(|p| p.iter().all(is_on_screen))
         {
             self.draw.triangle(
-                tri.a.round().as_ivec3().truncate(),
-                tri.b.round().as_ivec3().truncate(),
-                tri.c.round().as_ivec3().truncate(),
-                rgba);
+                points,
+                rgba,
+            );
         }
 
-        for (axis, color) in [(Vec3::X, [255, 0, 0, 255]), (Vec3::Y, [0, 255, 0, 255]), (Vec3::Z, [0, 0, 255, 255])] {
-            let origin = transform(&Vec3::ZERO).round().as_ivec3();
-            let transformed = transform(&axis).round().as_ivec3();
-            if is_on_screen(origin) && is_on_screen(transformed) {
-                self.draw.line(
-                    origin.truncate(),
-                    transformed.truncate(),
-                    color
-                );
+        let projected_origin = project(Vec3::ZERO);
+        if ahead_of(&projected_origin) {
+            let transformed_origin = transform(projected_origin);
+            if is_on_screen(&transformed_origin) {
+                for (axis, color) in [
+                    (Vec3::X, [255, 0, 0, 255]),
+                    (Vec3::Y, [0, 255, 0, 255]),
+                    (Vec3::Z, [0, 0, 255, 255]),
+                ] {
+                    let projected_axis = project(axis);
+                    if ahead_of(&projected_axis) {
+                        let transformed_axis = transform(projected_axis);
+                        if is_on_screen(&transformed_axis) {
+                            self.draw.line(transformed_axis, transformed_origin, color);
+                        }
+                    }
+
+                }
             }
+
         }
 
-        self.draw.pixel(
-            (size / 2).truncate(),
-            [255, 255, 255, 255]
-        );
+        self.draw.pixel(size / 2, [255, 255, 255, 255]);
 
         self.draw.copy_to_frame(self.pixels.frame_mut());
         self.pixels.render()?;
@@ -148,14 +157,20 @@ impl App for Application {
 
     fn handle(&mut self, event: &Event<()>) -> Result<()> {
         match event {
-            Event::WindowEvent {event: WindowEvent::Resized(size), .. } => {
+            Event::WindowEvent {
+                event: WindowEvent::Resized(size),
+                ..
+            } => {
                 self.pixels.resize_surface(size.width, size.height)?;
                 let (width, height) = (size.width / self.scale, size.height / self.scale);
                 self.pixels.resize_buffer(width, height)?;
                 self.draw = Draw::new(width as usize, height as usize);
                 self.camera.aspect_ratio = width as f32 / height as f32;
-            },
-            Event::DeviceEvent {event: DeviceEvent::MouseMotion { delta: (dx, dy)}, .. } => {
+            }
+            Event::DeviceEvent {
+                event: DeviceEvent::MouseMotion { delta: (dx, dy) },
+                ..
+            } => {
                 self.camera.update_rotation(vec2(-*dy as f32, *dx as f32));
             }
             _ => {}
@@ -169,10 +184,12 @@ fn main() -> Result<()> {
 
     let event_loop = EventLoop::new()?;
 
-    let window = Arc::new(WindowBuilder::new()
-        .with_inner_size(PhysicalSize::new(WIDTH, HEIGHT))
-        .with_fullscreen(Some(Fullscreen::Borderless(None)))
-        .build(&event_loop)?);
+    let window = Arc::new(
+        WindowBuilder::new()
+            .with_inner_size(PhysicalSize::new(WIDTH, HEIGHT))
+            .with_fullscreen(Some(Fullscreen::Borderless(None)))
+            .build(&event_loop)?,
+    );
 
     window.set_cursor_grab(CursorGrabMode::Confined)?;
     window.set_cursor_visible(false);
@@ -189,7 +206,10 @@ fn main() -> Result<()> {
         surface_texture,
     )?;
 
-    let draw = Draw::new(pixel_buffer_size.width as usize, pixel_buffer_size.height as usize);
+    let draw = Draw::new(
+        pixel_buffer_size.width as usize,
+        pixel_buffer_size.height as usize,
+    );
 
     let time = Instant::now();
 
@@ -200,14 +220,8 @@ fn main() -> Result<()> {
         scale: SCALE,
         time,
         camera: Camera::new(Vec3::ZERO, Vec2::ZERO, 0.0),
-        draw
+        draw,
     };
 
-    start(
-        event_loop,
-        window,
-        app,
-        target_frame_time,
-        max_frame_time,
-    )
+    start(event_loop, window, app, target_frame_time, max_frame_time)
 }

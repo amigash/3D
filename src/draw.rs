@@ -1,8 +1,8 @@
 use clipline::clipline;
-use glam::{IVec2};
+use glam::{IVec3};
 
 pub struct Draw {
-    to_draw: Vec<(IVec2, [u8; 4])>,
+    to_draw: Vec<(IVec3, [u8; 4])>,
     width: usize,
     height: usize,
     cleared_frame: Vec<u8>,
@@ -28,24 +28,23 @@ impl Draw {
         }
     }
 
-    pub fn pixel(&mut self, point: IVec2, rgba: [u8; 4]) {
+    pub fn pixel(&mut self, point: IVec3, rgba: [u8; 4]) {
         self.to_draw.push((point, rgba));
     }
 
-    pub fn line(&mut self, a: IVec2, b: IVec2, rgba: [u8; 4]) {
+    pub fn line(&mut self, a: IVec3, b: IVec3, rgba: [u8; 4]) {
         clipline(
-            (a.into(), b.into()),
+            (a.truncate().into(), b.truncate().into()),
             ((0, 0), (self.width as i32 - 1, self.height as i32 - 1)),
             |x, y| {
-                self.to_draw.push((IVec2::from((x, y)), rgba));
+                self.to_draw.push((IVec3::from((x, y, 0)), rgba));
             },
         );
     }
 
-    pub fn triangle(&mut self, a: IVec2, b: IVec2, c: IVec2, rgba: [u8; 4]) {
-        self.line(a, b, rgba);
-        self.line(b, c, rgba);
-        self.line(c, a, rgba);
+    pub fn triangle(&mut self, points: [IVec3; 3], rgba: [u8; 4]) {
+        self.line(points[0], points[1], rgba);
+        self.line(points[1], points[2], rgba);
+        self.line(points[2], points[0], rgba);
     }
 }
-
