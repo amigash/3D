@@ -1,4 +1,6 @@
 #![warn(clippy::pedantic)]
+extern crate core;
+
 mod draw;
 mod camera;
 mod triangle;
@@ -13,7 +15,7 @@ use std::{
     f32::consts::TAU,
     fs::File
 };
-use glam::{ivec3, IVec3, vec2, Vec2, Vec3};
+use glam::{ivec3, IVec3, vec2, Vec2, Vec3, vec3};
 use pixels::{Pixels, SurfaceTexture};
 use win_loop::{
     App, Context, InputState, start,
@@ -30,15 +32,11 @@ use win_loop::{
         window::{CursorGrabMode, Fullscreen}
     }
 };
-use crate::{draw::{clear, line, pixel, triangle}, triangle::Triangle, camera::Camera};
+use crate::{triangle::Triangle, camera::Camera, draw::Draw};
 
 const WIDTH: u32 = 1920;
 const HEIGHT: u32 = 1080;
 const SCALE: u32 = 4;
-
-const fn vec3(x: f32, y: f32, z: f32) -> Vec3 {
-    Vec3::new(x, y, z)
-}
 
 struct Application {
     mesh: Vec<Triangle>,
@@ -47,6 +45,7 @@ struct Application {
     scale: u32,
     time: Instant,
     camera: Camera,
+    draw: Draw
 }
 
 
@@ -68,12 +67,10 @@ impl App for Application {
     }
 
     fn render(&mut self, _blending_factor: f64) -> Result<()> {
-        let frame = self.pixels.frame_mut();
         let size = {
             let inner_size = self.window.inner_size().cast::<i32>();
             ivec3(inner_size.width, inner_size.height, 0) / (SCALE as i32)
         };
-        clear(frame);
 
         let matrix = self.camera.matrix();
         let scale_factor = 0.5 * size.as_vec3();
@@ -93,6 +90,7 @@ impl App for Application {
                 a: transform(&triangle.a),
                 b: transform(&triangle.b),
                 c: transform(&triangle.c),
+                normal: transform(&triangle.normal)
             }
         };
 
@@ -106,23 +104,7 @@ impl App for Application {
         };
 
         let is_visible = |triangle: &&Triangle| {
-            let normal = triangle.surface_normal();
-            let view_vector = self.camera.position - triangle.centroid();
-            normal.dot(view_vector) >= 0.0
-        };
-
-        let draw_axis = |frame_: &mut [u8], axis: Vec3, color: [u8; 4]| {
-            let origin = transform(&Vec3::ZERO).round().as_ivec3();
-            let transformed = transform(&axis).round().as_ivec3();
-            if is_on_screen(origin) && is_on_screen(transformed) {
-                line(
-                    frame_,
-                    size.truncate(),
-                    origin.truncate(),
-                    transformed.truncate(),
-                    color
-                )
-            }
+            triangle.normal.dot(self.camera.position - triangle.centroid()) >= 0.0
         };
 
         let time = self.time.elapsed().as_secs_f32();
@@ -134,25 +116,31 @@ impl App for Application {
             .map(transform_triangle)
             .filter(is_on_screen_triangle)
         {
-            triangle(
-                frame,
-                size.truncate(),
+            self.draw.triangle(
                 tri.a.round().as_ivec3().truncate(),
                 tri.b.round().as_ivec3().truncate(),
                 tri.c.round().as_ivec3().truncate(),
                 rgba);
         }
-        draw_axis(frame, Vec3::X, [255, 0, 0, 255]);
-        draw_axis(frame, Vec3::Y, [0, 255, 0, 255]);
-        draw_axis(frame, Vec3::Z, [0, 0, 255, 255]);
 
-        pixel(
-            frame,
-            size.x,
+        for (axis, color) in [(Vec3::X, [255, 0, 0, 255]), (Vec3::Y, [0, 255, 0, 255]), (Vec3::Z, [0, 0, 255, 255])] {
+            let origin = transform(&Vec3::ZERO).round().as_ivec3();
+            let transformed = transform(&axis).round().as_ivec3();
+            if is_on_screen(origin) && is_on_screen(transformed) {
+                self.draw.line(
+                    origin.truncate(),
+                    transformed.truncate(),
+                    color
+                )
+            }
+        }
+
+        self.draw.pixel(
             (size / 2).truncate(),
             [255, 255, 255, 255]
         );
 
+        self.draw.copy_to_frame(self.pixels.frame_mut());
         self.pixels.render()?;
 
         Ok(())
@@ -164,8 +152,10 @@ impl App for Application {
                 match event {
                     WindowEvent::Resized(size) => {
                         self.pixels.resize_surface(size.width, size.height)?;
-                        self.pixels.resize_buffer(size.width / self.scale, size.height / self.scale)?;
-                        self.camera.aspect_ratio = size.width as f32 / size.height as f32;
+                        let (width, height) = (size.width / self.scale, size.height / self.scale);
+                        self.pixels.resize_buffer(width, height)?;
+                        self.draw = Draw::new(width as usize, height as usize);
+                        self.camera.aspect_ratio = width as f32 / height as f32;
                     },
                     _ => {}
                 }
@@ -208,6 +198,8 @@ fn main() -> Result<()> {
         surface_texture,
     )?;
 
+    let draw = Draw::new(pixel_buffer_size.width as usize, pixel_buffer_size.height as usize);
+
     let time = Instant::now();
 
     let app = Application {
@@ -216,7 +208,8 @@ fn main() -> Result<()> {
         window: window.clone(),
         scale: SCALE,
         time,
-        camera: Camera::new(Vec3::ZERO, Vec2::ZERO, 0.0)
+        camera: Camera::new(Vec3::ZERO, Vec2::ZERO, 0.0),
+        draw
     };
 
     start(

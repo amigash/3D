@@ -5,7 +5,8 @@ use glam::Vec3;
 pub struct Triangle {
     pub a: Vec3,
     pub b: Vec3,
-    pub c: Vec3
+    pub c: Vec3,
+    pub normal: Vec3
 }
 impl Add<Vec3> for Triangle {
     type Output = Self;
@@ -15,6 +16,7 @@ impl Add<Vec3> for Triangle {
             a: self.a + rhs,
             b: self.b + rhs,
             c: self.c + rhs,
+            normal: self.normal,
         }
     }
 }
@@ -35,19 +37,20 @@ impl Mul<f32> for Triangle {
             a: self.a * rhs,
             b: self.b * rhs,
             c: self.c * rhs,
+            normal: self.normal,
+
         }
     }
 }
 
-pub const fn tri(a: Vec3, b: Vec3, c: Vec3, ) -> Triangle {
-    Triangle { a, b, c }
-}
-
 impl Triangle {
-    pub fn surface_normal(&self) -> Vec3 {
-        let a = self.b - self.a;
-        let b = self.c - self.a;
-        a.cross(b).normalize()
+    pub fn new(a: Vec3, b: Vec3, c: Vec3) -> Self {
+       Triangle {
+           a,
+           b,
+           c,
+           normal: (b - a).cross(c - a).normalize()
+       }
     }
 
     pub fn centroid(&self) -> Vec3 {
