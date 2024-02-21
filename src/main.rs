@@ -131,7 +131,7 @@ impl App for Application {
                     origin.truncate(),
                     transformed.truncate(),
                     color
-                )
+                );
             }
         }
 
@@ -148,25 +148,16 @@ impl App for Application {
 
     fn handle(&mut self, event: &Event<()>) -> Result<()> {
         match event {
-            Event::WindowEvent {event, .. } => {
-                match event {
-                    WindowEvent::Resized(size) => {
-                        self.pixels.resize_surface(size.width, size.height)?;
-                        let (width, height) = (size.width / self.scale, size.height / self.scale);
-                        self.pixels.resize_buffer(width, height)?;
-                        self.draw = Draw::new(width as usize, height as usize);
-                        self.camera.aspect_ratio = width as f32 / height as f32;
-                    },
-                    _ => {}
-                }
+            Event::WindowEvent {event: WindowEvent::Resized(size), .. } => {
+                self.pixels.resize_surface(size.width, size.height)?;
+                let (width, height) = (size.width / self.scale, size.height / self.scale);
+                self.pixels.resize_buffer(width, height)?;
+                self.draw = Draw::new(width as usize, height as usize);
+                self.camera.aspect_ratio = width as f32 / height as f32;
+            },
+            Event::DeviceEvent {event: DeviceEvent::MouseMotion { delta: (dx, dy)}, .. } => {
+                self.camera.update_rotation(vec2(-*dy as f32, *dx as f32));
             }
-            Event::DeviceEvent {event, .. } =>
-                match event {
-                    DeviceEvent::MouseMotion { delta: (dx, dy)} => {
-                        self.camera.update_rotation(vec2(-*dy as f32, *dx as f32));
-                    }
-                    _ => ()
-                }
             _ => {}
         }
         Ok(())
