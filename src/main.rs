@@ -20,29 +20,17 @@ use win_loop::{
     start,
     winit::{
         dpi::PhysicalSize,
-        event::{
-            DeviceEvent,
-            Event,
-            WindowEvent
-        },
+        event::{DeviceEvent, Event, WindowEvent},
         event_loop::EventLoop,
-        keyboard::{
-            KeyCode,
-            NamedKey
-        },
-        window::{
-            Window,
-            WindowBuilder,
-            CursorGrabMode,
-            Fullscreen
-        }
+        keyboard::{KeyCode, NamedKey},
+        window::{CursorGrabMode, Fullscreen, Window, WindowBuilder},
     },
     App, Context, InputState,
 };
 
 const WIDTH: u32 = 1920;
 const HEIGHT: u32 = 1080;
-const SCALE: u32 = 4;
+const SCALE: u32 = 1;
 
 struct Application {
     mesh: Vec<Triangle>,
@@ -98,9 +86,8 @@ impl App for Application {
             scaled.round().as_ivec3()
         };
 
-        let is_on_screen = |point: &IVec3| {
-            point.x > 0 && point.y > 0 && point.x < size.x && point.y < size.y
-        };
+        let is_on_screen =
+            |point: &IVec3| point.x > 0 && point.y > 0 && point.x < size.x && point.y < size.y;
 
         let is_visible = |triangle: &&Triangle| {
             triangle
@@ -108,7 +95,6 @@ impl App for Application {
                 .dot(self.camera.position - triangle.centroid())
                 >= 0.0
         };
-
 
         for points in self
             .mesh
@@ -119,10 +105,7 @@ impl App for Application {
             .map(|v| v.map(transform))
             .filter(|p| p.iter().all(is_on_screen))
         {
-            self.draw.triangle(
-                points,
-                rgba,
-            );
+            self.draw.triangle(points, rgba);
         }
 
         let projected_origin = project(Vec3::ZERO);
@@ -141,10 +124,8 @@ impl App for Application {
                             self.draw.line(transformed_axis, transformed_origin, color);
                         }
                     }
-
                 }
             }
-
         }
 
         self.draw.pixel(size / 2, [255, 255, 255, 255]);
@@ -180,7 +161,7 @@ impl App for Application {
 }
 
 fn main() -> Result<()> {
-    let mesh = mesh::load_from_obj_file(File::open("assets/teapot.obj")?)?;
+    let mesh = mesh::load_from_obj_file(File::open("assets/sentry.obj")?)?;
 
     let event_loop = EventLoop::new()?;
 

@@ -1,5 +1,5 @@
 use clipline::clipline;
-use glam::{IVec3};
+use glam::IVec3;
 
 pub struct Draw {
     to_draw: Vec<(IVec3, [u8; 4])>,

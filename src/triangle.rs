@@ -38,7 +38,9 @@ impl Triangle {
     pub fn new(points: [Vec3; 3]) -> Self {
         Triangle {
             points,
-            normal: (points[1] - points[0]).cross(points[2] - points[0]).normalize(),
+            normal: (points[1] - points[0])
+                .cross(points[2] - points[0])
+                .normalize(),
         }
     }
 
