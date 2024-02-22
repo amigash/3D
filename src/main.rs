@@ -7,7 +7,7 @@ mod mesh;
 mod triangle;
 
 use crate::{camera::Camera, draw::Draw, triangle::Triangle};
-use glam::{ivec2, vec2, vec3, IVec3, Vec2, Vec3, Vec4};
+use glam::{ivec2, vec2, vec3a, IVec3, Vec2, Vec3A, Vec4};
 use pixels::{Pixels, SurfaceTexture};
 use std::{
     f32::consts::TAU,
@@ -73,14 +73,14 @@ impl App for Application {
         let rgba = [rgb[0], rgb[1], rgb[2], 255];
 
         let matrix = self.camera.matrix();
-        let scale_factor = 0.5 * size.as_vec3();
+        let scale_factor = 0.5 * size.as_vec3a();
 
-        let project = |point: Vec3| matrix * point.extend(1.0);
+        let project = |point: Vec3A| matrix * point.extend(1.0);
         let ahead_of = |point: &Vec4| point.z > 0.01;
 
         let transform = |point: Vec4| {
-            let perspective_divided = (point / point.w).truncate();
-            let flipped = perspective_divided * vec3(1.0, -1.0, 1.0);
+            let perspective_divided: Vec3A = ((point / point.w).truncate()).into();
+            let flipped = perspective_divided * vec3a(1.0, -1.0, 1.0);
             let centered = flipped + 1.0;
             let scaled = centered * scale_factor;
             scaled.round().as_ivec3()
@@ -108,14 +108,14 @@ impl App for Application {
             self.draw.triangle(points, rgba);
         }
 
-        let projected_origin = project(Vec3::ZERO);
+        let projected_origin = project(Vec3A::ZERO);
         if ahead_of(&projected_origin) {
             let transformed_origin = transform(projected_origin);
             if is_on_screen(&transformed_origin) {
                 for (axis, color) in [
-                    (Vec3::X, [255, 0, 0, 255]),
-                    (Vec3::Y, [0, 255, 0, 255]),
-                    (Vec3::Z, [0, 0, 255, 255]),
+                    (Vec3A::X, [255, 0, 0, 255]),
+                    (Vec3A::Y, [0, 255, 0, 255]),
+                    (Vec3A::Z, [0, 0, 255, 255]),
                 ] {
                     let projected_axis = project(axis);
                     if ahead_of(&projected_axis) {
@@ -200,7 +200,7 @@ fn main() -> Result<()> {
         window: window.clone(),
         scale: SCALE,
         time,
-        camera: Camera::new(Vec3::ZERO, Vec2::ZERO, 0.0),
+        camera: Camera::new(Vec3A::ZERO, Vec2::ZERO, 0.0),
         draw,
     };
 

@@ -1,4 +1,4 @@
-use glam::vec3;
+use glam::vec3a;
 use std::{
     fs::File,
     io::{BufRead, BufReader},
@@ -20,7 +20,7 @@ pub fn load_from_obj_file(file: File) -> Result<Vec<Triangle>> {
                 let x: f32 = words.next().unwrap().parse().unwrap();
                 let y: f32 = words.next().unwrap().parse().unwrap();
                 let z: f32 = words.next().unwrap().parse().unwrap();
-                vertices.push(vec3(x, y, z));
+                vertices.push(vec3a(x, y, z));
             }
             Some("f") => {
                 let i: usize = words.next().unwrap().parse().unwrap();

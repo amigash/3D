@@ -1,4 +1,4 @@
-use glam::{Mat4, Vec2, Vec3};
+use glam::{Mat4, Vec2, Vec3A};
 use std::f32::consts::{FRAC_PI_2, TAU};
 use win_loop::winit::keyboard::KeyCode;
 
@@ -9,13 +9,13 @@ const Z_FAR: f32 = 100.0;
 const FOV: f32 = FRAC_PI_2;
 
 pub struct Camera {
-    pub position: Vec3,
+    pub position: Vec3A,
     rotation: Vec2,
     pub aspect_ratio: f32,
 }
 
 impl Camera {
-    pub fn new(position: Vec3, rotation: Vec2, aspect_ratio: f32) -> Self {
+    pub fn new(position: Vec3A, rotation: Vec2, aspect_ratio: f32) -> Self {
         Camera {
             position,
             rotation,
@@ -23,14 +23,14 @@ impl Camera {
         }
     }
 
-    fn forward(&self) -> Vec3 {
+    fn forward(&self) -> Vec3A {
         let (x_sin, x_cos) = self.rotation.x.sin_cos();
         let (y_sin, y_cos) = self.rotation.y.sin_cos();
-        Vec3::new(y_cos * x_cos, x_sin, y_sin * x_cos)
+        Vec3A::new(y_cos * x_cos, x_sin, y_sin * x_cos)
     }
 
-    fn right(&self) -> Vec3 {
-        self.forward().cross(Vec3::Y).normalize()
+    fn right(&self) -> Vec3A {
+        self.forward().cross(Vec3A::Y).normalize()
     }
 
     pub fn matrix(&self) -> Mat4 {
@@ -38,14 +38,14 @@ impl Camera {
         let right = self.right();
         let up = right.cross(forward).normalize();
         Mat4::perspective_rh(FOV, self.aspect_ratio, Z_NEAR, Z_FAR)
-            * Mat4::look_to_rh(self.position, forward, up)
+            * Mat4::look_to_rh(self.position.into(), forward.into(), up.into())
     }
 
     pub fn update(&mut self, keys: &[KeyCode]) {
-        let mut translation = Vec3::ZERO;
+        let mut translation = Vec3A::ZERO;
 
         let right = self.right();
-        let forward = right.cross(-Vec3::Y).normalize(); // "flat" forward vector -- not affected by pitch
+        let forward = right.cross(-Vec3A::Y).normalize(); // "flat" forward vector -- not affected by pitch
 
         for key in keys {
             match key {

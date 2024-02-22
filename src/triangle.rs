@@ -1,15 +1,15 @@
-use glam::Vec3;
+use glam::Vec3A;
 use std::ops::{Add, AddAssign, Mul};
 
 #[derive(Debug)]
 pub struct Triangle {
-    pub points: [Vec3; 3],
-    pub normal: Vec3,
+    pub points: [Vec3A; 3],
+    pub normal: Vec3A,
 }
-impl Add<Vec3> for Triangle {
+impl Add<Vec3A> for Triangle {
     type Output = Self;
 
-    fn add(self, rhs: Vec3) -> Self::Output {
+    fn add(self, rhs: Vec3A) -> Self::Output {
         Triangle {
             points: self.points.map(|point| point + rhs),
             normal: self.normal,
@@ -17,8 +17,8 @@ impl Add<Vec3> for Triangle {
     }
 }
 
-impl AddAssign<Vec3> for Triangle {
-    fn add_assign(&mut self, rhs: Vec3) {
+impl AddAssign<Vec3A> for Triangle {
+    fn add_assign(&mut self, rhs: Vec3A) {
         self.points = self.points.map(|point| point + rhs);
     }
 }
@@ -35,7 +35,7 @@ impl Mul<f32> for Triangle {
 }
 
 impl Triangle {
-    pub fn new(points: [Vec3; 3]) -> Self {
+    pub fn new(points: [Vec3A; 3]) -> Self {
         Triangle {
             points,
             normal: (points[1] - points[0])
@@ -44,7 +44,7 @@ impl Triangle {
         }
     }
 
-    pub fn centroid(&self) -> Vec3 {
-        self.points.iter().sum::<Vec3>() / 3.0
+    pub fn centroid(&self) -> Vec3A {
+        self.points.iter().sum::<Vec3A>() / 3.0
     }
 }
