@@ -9,7 +9,7 @@ edition = "2021"
 pixels = "0.13.0"
 win-loop = { version = "0.7.0", features = ["rwh_05"] }
 clipline = "0.2.0"
-glam = "0.25.0"
+glam = { version = "0.25.0", features = ["fast-math"] }
 
 [profile.release.build-override]
 opt-level = 3
