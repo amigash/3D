@@ -5,12 +5,12 @@ mod camera;
 mod draw;
 mod mesh;
 mod triangle;
+mod line;
 
 use crate::{camera::Camera, draw::Draw, triangle::Triangle};
 use glam::{ivec2, vec2, vec3a, IVec3, Vec2, Vec3A, Vec4};
 use pixels::{Pixels, SurfaceTexture};
 use std::{
-    f32::consts::TAU,
     fs::File,
     sync::Arc,
     time::{Duration, Instant},
@@ -42,6 +42,12 @@ struct Application {
     draw: Draw,
 }
 
+fn rgba_from_normal(triangle: &Triangle, light: Vec3A) -> [u8; 4] {
+    let intensity = triangle.normal.dot(light);
+    let color = (intensity * 255.0) as u8;
+    [color, color, color, 255]
+}
+
 impl App for Application {
     fn update(&mut self, ctx: &mut Context) -> Result<()> {
         if ctx.input.is_logical_key_pressed(NamedKey::Escape) {
@@ -66,11 +72,6 @@ impl App for Application {
             ivec2(inner_size.width, inner_size.height) / (SCALE as i32)
         };
 
-        let time = self.time.elapsed().as_secs_f32();
-        let rgb: Vec<u8> = (0..3)
-            .map(|i| ((TAU * (time + i as f32 / 3.0)).sin() * 127.5 + 127.5).round() as u8)
-            .collect();
-        let rgba = [rgb[0], rgb[1], rgb[2], 255];
 
         let matrix = self.camera.matrix();
         let scale_factor = Vec3A::from((0.5 * size.as_vec2()).extend(1.0));
@@ -96,36 +97,16 @@ impl App for Application {
                 >= 0.0
         };
 
-        for points in self
+        for triangle in self
             .mesh
             .iter()
             .filter(is_visible)
-            .map(|triangle| triangle.points.map(project))
-            .filter(|p| p.iter().all(ahead_of))
-            .map(|v| v.map(transform))
-            .filter(|p| p.iter().all(is_on_screen))
         {
-            self.draw.triangle(points, rgba);
-        }
-
-        let projected_origin = project(Vec3A::ZERO);
-        if ahead_of(&projected_origin) {
-            let transformed_origin = transform(projected_origin);
-            if is_on_screen(&transformed_origin) {
-                for (axis, color) in [
-                    (Vec3A::X, [255, 0, 0, 255]),
-                    (Vec3A::Y, [0, 255, 0, 255]),
-                    (Vec3A::Z, [0, 0, 255, 255]),
-                ] {
-                    let projected_axis = project(axis);
-                    if ahead_of(&projected_axis) {
-                        let transformed_axis = transform(projected_axis);
-                        if is_on_screen(&transformed_axis) {
-                            self.draw.line(transformed_axis, transformed_origin, color);
-                        }
-                    }
-                }
-            }
+            let points = triangle.points.map(project);
+            if !points.iter().all(ahead_of) { continue; }
+            let transformed_points = points.map(transform);
+            if !transformed_points.iter().all(is_on_screen) { continue; }
+            self.draw.fill_triangle(transformed_points, rgba_from_normal(triangle, Vec3A::Y))
         }
 
         self.draw.pixel(scale_factor.as_ivec3(), [255, 255, 255, 255]);
@@ -161,7 +142,7 @@ impl App for Application {
 }
 
 fn main() -> Result<()> {
-    let mesh = mesh::load_from_obj_file(File::open("assets/teapot.obj")?)?;
+    let mesh = mesh::load_from_obj_file(File::open("assets/heavy.obj")?)?;
 
     let event_loop = EventLoop::new()?;
 
