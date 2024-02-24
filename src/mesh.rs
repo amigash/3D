@@ -1,11 +1,11 @@
-use glam::vec3a;
+use glam::Vec3A;
 use std::{
     fs::File,
     io::{BufRead, BufReader},
 };
 
 use crate::triangle::Triangle;
-use win_loop::anyhow::Result;
+use win_loop::anyhow::{anyhow, Result};
 
 pub fn load_from_obj_file(file: File) -> Result<Vec<Triangle>> {
     let reader = BufReader::new(file);
@@ -17,20 +17,19 @@ pub fn load_from_obj_file(file: File) -> Result<Vec<Triangle>> {
         let mut words = line.split_whitespace();
         match words.next() {
             Some("v") => {
-                let x: f32 = words.next().unwrap().parse().unwrap();
-                let y: f32 = words.next().unwrap().parse().unwrap();
-                let z: f32 = words.next().unwrap().parse().unwrap();
-                vertices.push(vec3a(x, y, z));
+                let mut vertex = Vec3A::ZERO;
+                for i in 0..3 {
+                    vertex[i] = words.next().ok_or(anyhow!("Expected another vertex"))?.parse()?;
+                }
+                vertices.push(vertex);
             }
             Some("f") => {
-                let i: usize = words.next().unwrap().parse().unwrap();
-                let j: usize = words.next().unwrap().parse().unwrap();
-                let k: usize = words.next().unwrap().parse().unwrap();
-                mesh.push(Triangle::new([
-                    vertices[i - 1],
-                    vertices[j - 1],
-                    vertices[k - 1],
-                ]));
+                let mut points = [Vec3A::ZERO; 3];
+                for i in 0..3 {
+                    let index: usize = words.next().ok_or(anyhow!("Expected another index"))?.parse()?;
+                    points[i] = vertices[index - 1];
+                }
+                mesh.push(Triangle::new(points));
             }
             _ => {}
         }

@@ -63,7 +63,7 @@ impl App for Application {
     fn render(&mut self, _blending_factor: f64) -> Result<()> {
         let size = {
             let inner_size = self.window.inner_size().cast::<i32>();
-            (ivec2(inner_size.width, inner_size.height) / (SCALE as i32)).extend(1)
+            ivec2(inner_size.width, inner_size.height) / (SCALE as i32)
         };
 
         let time = self.time.elapsed().as_secs_f32();
@@ -73,15 +73,15 @@ impl App for Application {
         let rgba = [rgb[0], rgb[1], rgb[2], 255];
 
         let matrix = self.camera.matrix();
-        let scale_factor = 0.5 * size.as_vec3a();
+        let scale_factor = Vec3A::from((0.5 * size.as_vec2()).extend(1.0));
 
         let project = |point: Vec3A| matrix * point.extend(1.0);
         let ahead_of = |point: &Vec4| point.z > 0.01;
 
         let transform = |point: Vec4| {
-            let perspective_divided: Vec3A = ((point / point.w).truncate()).into();
+            let perspective_divided= Vec3A::from(point / point.w);
             let flipped = perspective_divided * vec3a(1.0, -1.0, 1.0);
-            let centered = flipped + 1.0;
+            let centered = flipped + vec3a(1.0, 1.0, 0.0);
             let scaled = centered * scale_factor;
             scaled.round().as_ivec3()
         };
@@ -128,7 +128,7 @@ impl App for Application {
             }
         }
 
-        self.draw.pixel(size / 2, [255, 255, 255, 255]);
+        self.draw.pixel(scale_factor.as_ivec3(), [255, 255, 255, 255]);
 
         self.draw.copy_to_frame(self.pixels.frame_mut());
         self.pixels.render()?;
@@ -161,7 +161,7 @@ impl App for Application {
 }
 
 fn main() -> Result<()> {
-    let mesh = mesh::load_from_obj_file(File::open("assets/sentry.obj")?)?;
+    let mesh = mesh::load_from_obj_file(File::open("assets/teapot.obj")?)?;
 
     let event_loop = EventLoop::new()?;
 
@@ -175,21 +175,21 @@ fn main() -> Result<()> {
     window.set_cursor_grab(CursorGrabMode::Confined)?;
     window.set_cursor_visible(false);
 
-    let target_frame_time = Duration::from_secs_f32(1. / 120.); // 120 fps
+    let target_frame_time = Duration::from_secs_f32(1. / 144.); // 144 fps
     let max_frame_time = Duration::from_secs_f32(0.1);
 
-    let pixel_buffer_size = PhysicalSize::new(WIDTH / SCALE, HEIGHT / SCALE);
+    let [width, height] = [WIDTH / SCALE, HEIGHT / SCALE];
     let surface_texture = SurfaceTexture::new(WIDTH, HEIGHT, &window);
 
     let pixels = Pixels::new(
-        pixel_buffer_size.width,
-        pixel_buffer_size.height,
+        width,
+        height,
         surface_texture,
     )?;
 
     let draw = Draw::new(
-        pixel_buffer_size.width as usize,
-        pixel_buffer_size.height as usize,
+        width as usize,
+        height as usize,
     );
 
     let time = Instant::now();
