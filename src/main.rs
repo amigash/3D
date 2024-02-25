@@ -8,7 +8,7 @@ mod triangle;
 mod line;
 
 use crate::{camera::Camera, draw::Draw, triangle::Triangle};
-use glam::{ivec2, vec2, vec3a, IVec3, Vec2, Vec3A, Vec4};
+use glam::{ivec2, vec2, vec3a, Vec2, Vec3A, Vec4};
 use pixels::{Pixels, SurfaceTexture};
 use std::{
     fs::File,
@@ -84,11 +84,11 @@ impl App for Application {
             let flipped = perspective_divided * vec3a(1.0, -1.0, 1.0);
             let centered = flipped + vec3a(1.0, 1.0, 0.0);
             let scaled = centered * scale_factor;
-            scaled.round().as_ivec3()
+            scaled
         };
 
         let is_on_screen =
-            |point: &IVec3| point.x > 0 && point.y > 0 && point.x < size.x && point.y < size.y;
+            |point: &Vec3A| point.x > 0.0 && point.y > 0.0 && point.x < size.x as f32 && point.y < size.y as f32;
 
         let is_visible = |triangle: &&Triangle| {
             triangle
@@ -106,10 +106,8 @@ impl App for Application {
             if !points.iter().all(ahead_of) { continue; }
             let transformed_points = points.map(transform);
             if !transformed_points.iter().all(is_on_screen) { continue; }
-            self.draw.fill_triangle(transformed_points, rgba_from_normal(triangle, Vec3A::Y))
+            self.draw.draw_filled_triangle(transformed_points, rgba_from_normal(triangle, Vec3A::Y))
         }
-
-        self.draw.pixel(scale_factor.as_ivec3(), [255, 255, 255, 255]);
 
         self.draw.copy_to_frame(self.pixels.frame_mut());
         self.pixels.render()?;
@@ -142,7 +140,7 @@ impl App for Application {
 }
 
 fn main() -> Result<()> {
-    let mesh = mesh::load_from_obj_file(File::open("assets/heavy.obj")?)?;
+    let mesh = mesh::load_from_obj_file(File::open("assets/teapot.obj")?)?;
 
     let event_loop = EventLoop::new()?;
 
