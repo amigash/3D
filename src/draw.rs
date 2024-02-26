@@ -43,7 +43,6 @@ impl Draw {
 
     pub fn copy_to_frame(&mut self, frame: &mut [u8]) {
         frame.copy_from_slice(self.cleared_frame.as_slice());
-        dbg!(self.to_draw.len());
         self.to_draw.reverse();
 
         while let Some(((x, y, _), rgba)) = self.to_draw.pop() {

@@ -43,7 +43,7 @@ struct Application {
 }
 
 fn rgba_from_normal(triangle: &Triangle, light: Vec3A) -> [u8; 4] {
-    let intensity = triangle.normal.dot(light).max(0.05);
+    let intensity = triangle.normal.dot(light).max(0.01);
     let color = (intensity * 255.0) as u8;
     [color, color, color, 255]
 }
@@ -54,7 +54,7 @@ impl App for Application {
             ctx.exit();
         }
 
-        self.mesh.sort_by_key(|t| t.centroid().z as i32);
+        self.mesh.sort_unstable_by_key(|t| t.centroid().z as i32);
 
         let keys: Vec<KeyCode> = ctx
             .input
