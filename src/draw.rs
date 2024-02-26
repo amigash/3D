@@ -71,12 +71,14 @@ impl Draw {
     }
 
     fn draw_filled_flat_triangle(&mut self, apex: Vec3A, b: Vec3A, c: Vec3A, rgba: [u8; 4]) {
-        let find_edge_points = |end: Vec3A| {
+        let mut find_edge_points = |end: Vec3A| {
             let mut edge_points = vec![];
             let mut last_point = apex;
             plot_line_with_depth(apex.x as i32, apex.y as i32, apex.z, end.x as i32, end.y as i32, end.z, |x, y, z| {
                 if y != last_point.y as i32 {
                     edge_points.push(last_point);
+                } else {
+                    self.pixel(last_point.x as usize, last_point.y as usize, last_point.z, rgba);
                 }
                 last_point = vec3a(x as f32, y as f32, z);
             });
