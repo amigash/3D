@@ -1,12 +1,6 @@
-<<<<<<< HEAD
-use nannou::prelude::{Mat4LookTo, Mat4, Point3, Vec2, Vec3, Key};
-use std::f32::consts::{FRAC_PI_2, TAU};
-use nannou::state::Keys;
-=======
 use glam::{Mat4, Vec2, Vec3A};
 use std::f32::consts::{FRAC_PI_2, TAU};
 use win_loop::winit::keyboard::KeyCode;
->>>>>>> new-repo/main
 
 const SPEED: f32 = 0.1;
 const SENSITIVITY: f32 = 0.003;
@@ -15,53 +9,6 @@ const Z_FAR: f32 = 100.0;
 const FOV: f32 = FRAC_PI_2;
 
 pub struct Camera {
-<<<<<<< HEAD
-    pub position: Point3,
-    rotation: Vec2,
-    pub aspect_ratio: f32
-}
-
-impl Camera {
-    pub fn new(position: Point3, rotation: Vec2, aspect_ratio: f32) -> Self {
-        Camera {
-            position,
-            rotation,
-            aspect_ratio
-        }
-    }
-
-    fn forward(&self) -> Vec3 {
-        let (x_sin, x_cos) = self.rotation.x.sin_cos();
-        let (y_sin, y_cos) = self.rotation.y.sin_cos();
-        Vec3::new(y_cos * x_cos, x_sin, y_sin * x_cos)
-    }
-
-    fn right(&self) -> Vec3 {
-        self.forward().cross(Vec3::Y).normalize()
-    }
-
-    pub(crate) fn matrix(&self) -> Mat4 {
-        let forward = self.forward();
-        let right = self.right();
-        let up = right.cross(forward).normalize();
-        Mat4::perspective_rh(FOV, self.aspect_ratio, Z_NEAR, Z_FAR) * Mat4::look_to_rh(self.position, forward, up)
-    }
-
-    pub fn update(&mut self, keys: &Keys) {
-        let mut translation = Vec3::ZERO;
-
-        let right = self.right();
-        let forward = right.cross(-Vec3::Y).normalize(); // "flat" forward vector -- not affected by pitch
-
-        for key in keys.down.iter() {
-            match key {
-                Key::W => translation += forward,
-                Key::S => translation -= forward,
-                Key::A => translation -= right,
-                Key::D => translation += right,
-                Key::Space => translation.y += 1.0,
-                Key::LShift => translation.y -= 1.0,
-=======
     pub position: Vec3A,
     rotation: Vec2,
     pub aspect_ratio: f32,
@@ -108,7 +55,6 @@ impl Camera {
                 KeyCode::KeyD => translation += right,
                 KeyCode::Space => translation.y += 1.0,
                 KeyCode::ShiftLeft => translation.y -= 1.0,
->>>>>>> new-repo/main
                 _ => {}
             }
         }
@@ -121,8 +67,4 @@ impl Camera {
         self.rotation.x = self.rotation.x.clamp(0.99 * -FRAC_PI_2, 0.99 * FRAC_PI_2);
         self.rotation.y = self.rotation.y.rem_euclid(TAU);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> new-repo/main

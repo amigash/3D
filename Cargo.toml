@@ -1,22 +1,15 @@
 [package]
-<<<<<<< HEAD
 name = "drawing"
-=======
-name = "pixel_rendering"
->>>>>>> new-repo/main
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-<<<<<<< HEAD
 nannou = "0.19.0"
-=======
 pixels = "0.13.0"
 win-loop = { version = "0.7.0", features = ["rwh_05"] }
 glam = { version = "0.25.0", features = ["fast-math"] }
 
 [profile.release.build-override]
 opt-level = 3
->>>>>>> new-repo/main
