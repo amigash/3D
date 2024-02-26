@@ -8,7 +8,7 @@ mod triangle;
 mod line;
 
 use crate::{camera::Camera, draw::Draw, triangle::Triangle};
-use glam::{ivec2, vec2, vec3a, Vec2, Vec3A, Vec4};
+use glam::{ivec2, vec2, vec3a, Vec3A, Vec4};
 use pixels::{Pixels, SurfaceTexture};
 use std::{
     fs::File,
@@ -43,7 +43,7 @@ struct Application {
 }
 
 fn rgba_from_normal(triangle: &Triangle, light: Vec3A) -> [u8; 4] {
-    let intensity = triangle.normal.dot(light);
+    let intensity = triangle.normal.dot(light).max(0.05);
     let color = (intensity * 255.0) as u8;
     [color, color, color, 255]
 }
@@ -53,6 +53,8 @@ impl App for Application {
         if ctx.input.is_logical_key_pressed(NamedKey::Escape) {
             ctx.exit();
         }
+
+        self.mesh.sort_by_key(|t| t.centroid().z as i32);
 
         let keys: Vec<KeyCode> = ctx
             .input
@@ -97,6 +99,9 @@ impl App for Application {
                 >= 0.0
         };
 
+        let angle = (10.0 * self.time.elapsed().as_secs_f32().sin()).to_radians();
+        let rotated_light = glam::Mat3::from_rotation_z(angle) * Vec3A::Y;
+
         for triangle in self
             .mesh
             .iter()
@@ -106,7 +111,8 @@ impl App for Application {
             if !points.iter().all(ahead_of) { continue; }
             let transformed_points = points.map(transform);
             if !transformed_points.iter().all(is_on_screen) { continue; }
-            self.draw.draw_filled_triangle(transformed_points, rgba_from_normal(triangle, Vec3A::Y))
+
+            self.draw.fill_triangle(transformed_points, rgba_from_normal(triangle, rotated_light));
         }
 
         self.draw.copy_to_frame(self.pixels.frame_mut());
@@ -140,7 +146,7 @@ impl App for Application {
 }
 
 fn main() -> Result<()> {
-    let mesh = mesh::load_from_obj_file(File::open("assets/teapot.obj")?)?;
+    let mesh = mesh::load_from_obj_file(File::open("assets/heavy.obj")?)?;
 
     let event_loop = EventLoop::new()?;
 
@@ -179,7 +185,7 @@ fn main() -> Result<()> {
         window: window.clone(),
         scale: SCALE,
         time,
-        camera: Camera::new(Vec3A::ZERO, Vec2::ZERO, 0.0),
+        camera: Camera::new(vec3a(0.0, 2.5, 5.0), vec2(0.0, -std::f32::consts::FRAC_PI_2), 0.0),
         draw,
     };
 

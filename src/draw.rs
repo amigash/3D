@@ -2,10 +2,11 @@ use glam::{Vec3A, vec3a};
 use crate::line::plot_line_with_depth;
 
 pub struct Draw {
-    to_draw: Vec<([usize; 2], [u8; 4])>,
+    to_draw: Vec<((usize, usize, f32), [u8; 4])>,
     width: usize,
     cleared_frame: Vec<u8>,
     depth_buffer: Vec<f32>,
+    cleared_depth_buffer: Vec<f32>,
 }
 
 impl Draw {
@@ -15,30 +16,53 @@ impl Draw {
             width,
             cleared_frame: vec![0; width * height * 4],
             depth_buffer: vec![f32::MAX; width * height],
+            cleared_depth_buffer: vec![f32::MAX; width * height],
         }
+    }
+
+    pub fn copy_depth_buffer_to_frame(&mut self, frame: &mut [u8]) {
+        let (min_depth, max_depth) = self.depth_buffer.iter()
+            .filter(|&&depth| depth < f32::MAX)
+            .fold((f32::MAX, 0.0_f32), |(min, max), &depth| {
+                (min.min(depth), max.max(depth))
+            });
+
+        for (i, &depth) in self.depth_buffer.iter().enumerate() {
+            let normalized_depth = if depth < f32::MAX {
+                255 - (((depth - min_depth) / (max_depth - min_depth)) * 255.0) as u8
+            } else {
+                0
+            };
+
+            let index = i * 4;
+            frame[index..index + 4].copy_from_slice(&[normalized_depth, normalized_depth, normalized_depth, 255]);
+        }
+        self.to_draw.clear();
+        self.depth_buffer.copy_from_slice(self.cleared_depth_buffer.as_slice());
     }
 
     pub fn copy_to_frame(&mut self, frame: &mut [u8]) {
         frame.copy_from_slice(self.cleared_frame.as_slice());
-        while let Some(([x, y], rgba)) = self.to_draw.pop() {
+        dbg!(self.to_draw.len());
+        self.to_draw.reverse();
+
+        while let Some(((x, y, _), rgba)) = self.to_draw.pop() {
             let index = 4 * (x + y * self.width);
             // SAFETY: Caller must ensure that index is within bounds.
-            unsafe { frame.get_unchecked_mut(index..index + 4) }.copy_from_slice(rgba.as_slice());
+            unsafe { frame.get_unchecked_mut(index..index + 4) }.copy_from_slice(&rgba);
         }
+        self.depth_buffer.copy_from_slice(self.cleared_depth_buffer.as_slice());
     }
 
     fn pixel(&mut self, x: usize, y: usize, z: f32, rgba: [u8; 4]) {
         if z < self.depth_buffer[x + y * self.width] {
-            self.to_draw.push(([x, y], rgba));
+            self.to_draw.push(((x, y, z), rgba));
             self.depth_buffer[x + y * self.width] = z;
         }
     }
 
     pub fn line(&mut self, a: Vec3A, b: Vec3A, rgba: [u8; 4]) {
-        plot_line_with_depth(
-            a.x as i32, a.y as i32, a.z,
-            b.x as i32, b.y as i32, b.z,
-            |x, y, z| self.pixel(x as usize, y as usize, z, rgba));
+        plot_line_with_depth(a.x as i32, a.y as i32, a.z, b.x as i32, b.y as i32, b.z, |x, y, z| self.pixel(x as usize, y as usize, z, rgba));
     }
 
     pub fn triangle(&mut self, points: [Vec3A; 3], rgba: [u8; 4]) {
@@ -67,18 +91,18 @@ impl Draw {
 
         for (start, end) in left_points.into_iter().zip(right_points) {
             self.line(start, end, rgba);
-        }
+        };
     }
 
-    pub fn draw_filled_triangle(&mut self, mut points: [Vec3A; 3], rgba: [u8; 4]) {
+    pub fn fill_triangle(&mut self, mut points: [Vec3A; 3], rgba: [u8; 4]) {
         points.sort_unstable_by(|a, b| f32::total_cmp(&a.y, &b.y));
         let [a, b, c] = points;
-        match [a.y == b.y, b.y == c.y] {
+        match [(a.y - b.y).abs() < f32::EPSILON, (b.y - c.y).abs() < f32::EPSILON] { // [a.y == b.y, b.y == c.y]
             [true, true] => self.line(a, c, rgba),
             [true, false] => self.draw_filled_flat_triangle(c, a, b, rgba),
             [false, true] => self.draw_filled_flat_triangle(a, b, c, rgba),
             [false, false] => {
-                let divisor = (a.y - b.y) / (a.y - c.y);
+                let divisor = (a.y - b.y) / (c.y - a.y);
                 let d_x = (a.x - c.x) * divisor + a.x;
                 let d_z = (a.z - c.z) * divisor + a.z;
                 let d = vec3a(d_x, b.y, d_z);

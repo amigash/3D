@@ -25,9 +25,9 @@ pub fn load_from_obj_file(file: File) -> Result<Vec<Triangle>> {
             }
             Some("f") => {
                 let mut points = [Vec3A::ZERO; 3];
-                for i in 0..3 {
+                for point in &mut points {
                     let index: usize = words.next().ok_or(anyhow!("Expected another index"))?.parse()?;
-                    points[i] = vertices[index - 1];
+                    *point = vertices[index - 1];
                 }
                 mesh.push(Triangle::new(points));
             }
