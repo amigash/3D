@@ -2,12 +2,6 @@ use glam::{Mat4, Vec2, Vec3A};
 use std::f32::consts::{FRAC_PI_2, TAU};
 use win_loop::winit::keyboard::KeyCode;
 
-const SPEED: f32 = 0.1;
-const SENSITIVITY: f32 = 0.003;
-const Z_NEAR: f32 = 0.1;
-const Z_FAR: f32 = 100.0;
-const FOV: f32 = FRAC_PI_2;
-
 pub struct Camera {
     pub position: Vec3A,
     rotation: Vec2,
@@ -15,15 +9,21 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(position: Vec3A, rotation: Vec2, aspect_ratio: f32) -> Self {
+    const Z_NEAR: f32 = 0.1;
+    const Z_FAR: f32 = 500.0;
+    const SPEED: f32 = 0.1;
+    const SENSITIVITY: f32 = 0.003;
+    const FOV: f32 = FRAC_PI_2;
+
+    pub fn new(position: Vec3A, rotation: Vec2) -> Self {
         Camera {
             position,
             rotation,
-            aspect_ratio,
+            aspect_ratio: 0.0,
         }
     }
 
-    fn forward(&self) -> Vec3A {
+    pub fn forward(&self) -> Vec3A {
         let (x_sin, x_cos) = self.rotation.x.sin_cos();
         let (y_sin, y_cos) = self.rotation.y.sin_cos();
         Vec3A::new(y_cos * x_cos, x_sin, y_sin * x_cos)
@@ -33,19 +33,24 @@ impl Camera {
         self.forward().cross(Vec3A::Y).normalize()
     }
 
+    fn up(&self) -> Vec3A {
+        self.right().cross(self.forward()).normalize()
+    }
+
     pub fn matrix(&self) -> Mat4 {
-        let forward = self.forward();
-        let right = self.right();
-        let up = right.cross(forward).normalize();
-        Mat4::perspective_rh(FOV, self.aspect_ratio, Z_NEAR, Z_FAR)
-            * Mat4::look_to_rh(self.position.into(), forward.into(), up.into())
+        Mat4::perspective_rh(Self::FOV, self.aspect_ratio, Self::Z_NEAR, Self::Z_FAR)
+            * Mat4::look_to_rh(
+            self.position.into(),
+            self.forward().into(),
+            self.up().into(),
+        )
     }
 
     pub fn update(&mut self, keys: &[KeyCode]) {
         let mut translation = Vec3A::ZERO;
 
         let right = self.right();
-        let forward = right.cross(-Vec3A::Y).normalize(); // "flat" forward vector -- not affected by pitch
+        let forward = self.forward().with_y(0.0).normalize();
 
         for key in keys {
             match key {
@@ -55,15 +60,15 @@ impl Camera {
                 KeyCode::KeyD => translation += right,
                 KeyCode::Space => translation.y += 1.0,
                 KeyCode::ShiftLeft => translation.y -= 1.0,
-                _ => {}
+                _ => (),
             }
         }
 
-        self.position += translation * SPEED;
+        self.position += translation * Self::SPEED;
     }
 
     pub fn update_rotation(&mut self, delta: Vec2) {
-        self.rotation += delta * SENSITIVITY;
+        self.rotation += delta * Self::SENSITIVITY;
         self.rotation.x = self.rotation.x.clamp(0.99 * -FRAC_PI_2, 0.99 * FRAC_PI_2);
         self.rotation.y = self.rotation.y.rem_euclid(TAU);
     }
