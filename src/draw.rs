@@ -1,4 +1,4 @@
-use glam::{vec2, Vec2, Vec3A};
+use glam::{Vec2, Vec3A};
 
 pub struct Draw {
     length: usize,
@@ -41,27 +41,21 @@ impl Draw {
             )
             .map(|n| n.round() as usize)
     }
-
-    fn area([a, b, c]: [Vec2; 3]) -> f32 {
-        c.perp_dot(b) + b.perp_dot(a) + a.perp_dot(c)
-    }
-
+    
     pub fn fill_triangle(&mut self, frame: &mut [u8], triangle: [Vec3A; 3], rgb: [u8; 3]) {
         let [a, b, c] = triangle.map(Vec3A::truncate);
         let z_coordinates = Vec3A::from_array(triangle.map(|point| point.z));
         let [x_min, x_max, y_min, y_max] = Self::bounding_box(&triangle);
-        let inverse_area = Self::area([a, b, c]).recip();
+        let [c_b, b_a, a_c] = [c.perp_dot(b), b.perp_dot(a), a.perp_dot(c)];
+        let inverse_area = (c_b + b_a + a_c).recip();
 
         for y in y_min..=y_max {
             for x in x_min..=x_max {
-                let interior_point = vec2(x as f32, y as f32) + 0.5;
-
-                let weights =
-                    inverse_area
-                        * Vec3A::from_array([[b, c], [c, a], [a, b]].map(|[point_1, point_2]| {
-                            Self::area([point_1, point_2, interior_point])
-                        }));
-
+                let point = Vec2::new(x as f32, y as f32) + 0.5;
+                let [p_a, p_b, p_c] = [a, b, c].map(|vertex| point.perp_dot(vertex));
+                let sub_triangle_areas =
+                    Vec3A::new(p_c + c_b - p_b, p_a + a_c - p_c, p_b + b_a - p_a);
+                let weights = inverse_area * sub_triangle_areas;
                 if weights
                     .as_ref()
                     .iter()

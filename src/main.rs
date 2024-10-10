@@ -5,7 +5,7 @@ mod draw;
 mod mesh;
 
 use crate::{camera::Camera, draw::Draw};
-use glam::{vec2, vec3a, vec4, Vec2, Vec3A, Vec4};
+use glam::{Vec2, Vec3A, Vec4};
 use itertools::Itertools;
 use pixels::{Pixels, SurfaceTexture};
 use std::{fs::File, sync::Arc, time::Duration, time::Instant};
@@ -27,12 +27,12 @@ const HEIGHT: u32 = 1600;
 const SCALE: u32 = 2;
 
 const CLIPPING_PLANES: [Vec4; 6] = [
-    vec4(0.0, 0.0, 1.0, 1.0),  // Near
-    vec4(0.0, 0.0, -1.0, 1.0), // Far
-    vec4(1.0, 0.0, 0.0, 1.0),  // Left
-    vec4(-1.0, 0.0, 0.0, 1.0), // Right
-    vec4(0.0, -1.0, 0.0, 1.0), // Top
-    vec4(0.0, 1.0, 0.0, 1.0),  // Bottom
+    Vec4::new(0.0, 0.0, 1.0, 1.0),  // Near
+    Vec4::new(0.0, 0.0, -1.0, 1.0), // Far
+    Vec4::new(1.0, 0.0, 0.0, 1.0),  // Left
+    Vec4::new(-1.0, 0.0, 0.0, 1.0), // Right
+    Vec4::new(0.0, -1.0, 0.0, 1.0), // Top
+    Vec4::new(0.0, 1.0, 0.0, 1.0),  // Bottom
 ];
 
 struct Application {
@@ -82,15 +82,15 @@ fn clip(points: &mut Vec<([Vec4; 3], Vec3A)>) {
 impl Application {
     fn transform(&self, point: Vec4) -> Vec3A {
         let perspective_divided = Vec3A::from_vec4(point / point.w);
-        let flipped = perspective_divided * vec3a(1.0, -1.0, 1.0);
-        let centered = flipped + vec3a(1.0, 1.0, 0.0);
+        let flipped = perspective_divided * Vec3A::new(1.0, -1.0, 1.0);
+        let centered = flipped + Vec3A::new(1.0, 1.0, 0.0);
         centered * Vec3A::from((0.5 * (self.size - Vec2::ONE)).extend(1.0))
     }
 
     fn rgb_from_normal(&self, normal: Vec3A) -> [u8; 3] {
         let speed = 0.25;
         let angle = self.time.elapsed().as_secs_f32() * speed;
-        let light_direction = vec3a(angle.cos(), angle.sin(), 0.0);
+        let light_direction = Vec3A::new(angle.cos(), angle.sin(), 0.0);
         let intensity = normal.dot(light_direction).max(0.01);
         let color = (intensity * 255.0) as u8;
         [color; 3]
@@ -159,12 +159,12 @@ impl App for Application {
                 self.pixels.resize_buffer(width, height)?;
                 self.draw = Draw::new(width as usize, height as usize);
                 self.camera.aspect_ratio = width as f32 / height as f32;
-                self.size = vec2(width as f32, height as f32);
+                self.size = Vec2::new(width as f32, height as f32);
             }
             Event::DeviceEvent {
                 event: DeviceEvent::MouseMotion { delta: (dx, dy) },
                 ..
-            } => self.camera.update_rotation(vec2(-dy as f32, dx as f32)),
+            } => self.camera.update_rotation(Vec2::new(-dy as f32, dx as f32)),
             _ => (),
         }
         Ok(())
@@ -190,9 +190,9 @@ fn main() -> Result<()> {
         mesh: mesh::load_from_obj_file(File::open("assets/teapot.obj")?)?,
         pixels: Pixels::new(width, height, SurfaceTexture::new(WIDTH, HEIGHT, &window))?,
         scale: SCALE,
-        camera: Camera::new(vec3a(0.0, 2.5, 5.0), vec2(0.0, 0.0)),
+        camera: Camera::new(Vec3A::new(0.0, 2.5, 5.0), Vec2::ZERO),
         draw: Draw::new(width as usize, height as usize),
-        size: vec2(WIDTH as f32, HEIGHT as f32),
+        size: Vec2::new(WIDTH as f32, HEIGHT as f32),
         time: Instant::now(),
     };
 
