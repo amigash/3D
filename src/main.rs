@@ -7,7 +7,7 @@ mod mesh;
 use crate::{camera::Camera, draw::Draw};
 use glam::{vec2, vec3a, vec4, Vec2, Vec3A, Vec4};
 use pixels::{Pixels, SurfaceTexture};
-use std::{f32::consts::FRAC_PI_2, fs::File, mem::swap, sync::Arc, time::Duration, time::Instant};
+use std::{f32::consts::FRAC_PI_2, fs::File, sync::Arc, time::Duration, time::Instant};
 use win_loop::{
     anyhow::Result,
     start,
@@ -56,35 +56,36 @@ fn intersection(plane: Vec4, a: Vec4, b: Vec4) -> Vec4 {
     a + (b - a) * plane.dot(a) / (plane.dot(a) - plane.dot(b))
 }
 
-fn clip(points: impl IntoIterator<Item = ([Vec4; 3], Vec3A)>) -> Vec<([Vec4; 3], Vec3A)> {
-    let mut current = points.into_iter().collect::<Vec<_>>();
-    let mut next = Vec::with_capacity(current.capacity());
-
+fn clip(points: &mut Vec<([Vec4; 3], Vec3A)>) {
     for plane in CLIPPING_PLANES {
-        for (mut triangle, normal) in current.drain(..) {
+        let mut i = 0;
+        let mut length = points.len();
+        while i < length {
+            let (mut triangle, normal) = points[i];
             let inside = triangle
                 .iter_mut()
                 .partition_in_place(|point| point.dot(plane).is_sign_positive());
             match inside {
                 1 | 2 => {
-                    let [a, b, c] = [1, 2, 3].map(|i| triangle[(3 + i - inside) % 3]);
+                    let [a, b, c] = [1, 2, 3].map(|j| triangle[(3 + j - inside) % 3]);
                     let [ab, ac] = [b, c].map(|point| intersection(plane, a, point));
                     if inside == 1 {
-                        next.push(([ac, a, ab], normal));
+                        points[i] = ([ac, a, ab], normal);
                     } else {
-                        next.push(([ac, b, ab], normal));
-                        next.push(([c, b, ac], normal));
+                        points[i] = ([ac, b, ab], normal);
+                        points.push(([c, b, ac], normal));
+                        length += 1;
                     }
+                    i += 1;
                 }
-                3 => {
-                    next.push((triangle, normal));
+                3 => i += 1,
+                _ => {
+                    points.swap_remove(i);
+                    length -= 1;
                 }
-                _ => (),
             }
         }
-        swap(&mut current, &mut next);
     }
-    current
 }
 
 impl Application {
@@ -127,7 +128,7 @@ impl App for Application {
     }
 
     fn render(&mut self, _blending_factor: f64) -> Result<()> {
-        let view_space = self
+        let mut view_space = self
             .mesh
             .iter()
             .filter(|&&triangle| {
@@ -140,13 +141,15 @@ impl App for Application {
                     triangle.map(|p| self.camera.matrix() * p.extend(1.0)),
                     get_normal(triangle),
                 )
-            });
+            }).collect();
+        clip(&mut view_space);
 
         self.pixels.frame_mut().fill(0);
-        for (triangle, normal) in clip(view_space) {
+        for (triangle, normal) in view_space {
             let screen_space = triangle.map(|point| self.transform(point));
             let rgb = self.rgb_from_normal(normal);
-            self.draw.fill_triangle(self.pixels.frame_mut(), screen_space, rgb);
+            self.draw
+                .fill_triangle(self.pixels.frame_mut(), screen_space, rgb);
         }
         self.draw.clear_depth_buffer();
 
@@ -156,7 +159,7 @@ impl App for Application {
     }
 
     fn handle(&mut self, event: &Event<()>) -> Result<()> {
-        match event {
+        match *event {
             Event::WindowEvent {
                 event: WindowEvent::Resized(size),
                 ..
@@ -171,7 +174,7 @@ impl App for Application {
             Event::DeviceEvent {
                 event: DeviceEvent::MouseMotion { delta: (dx, dy) },
                 ..
-            } => self.camera.update_rotation(vec2(-*dy as f32, *dx as f32)),
+            } => self.camera.update_rotation(vec2(-dy as f32, dx as f32)),
             _ => (),
         }
         Ok(())
