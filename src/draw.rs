@@ -2,7 +2,6 @@ use glam::{vec2, Vec2, Vec3A};
 
 pub struct Draw {
     length: usize,
-    to_be_drawn: Vec<([usize; 2], [u8; 3])>,
     depth_buffer: Vec<f32>,
 }
 
@@ -10,28 +9,20 @@ impl Draw {
     pub fn new(width: usize, height: usize) -> Self {
         Draw {
             length: width,
-            to_be_drawn: Vec::new(),
             depth_buffer: vec![f32::MAX; width * height],
         }
     }
 
-    pub fn copy_to_frame(&mut self, frame: &mut [u8]) {
-        frame.fill(0);
-        for ([x, y], rgb) in self.to_be_drawn.drain(..) {
-            let index = 4 * (x + y * self.length);
-            let rgba = [rgb[0], rgb[1], rgb[2], 255];
-            if let Some(slice) = frame.get_mut(index..index + 4) {
-                slice.copy_from_slice(&rgba);
-            }
+    fn pixel(&mut self, frame: &mut [u8], x: usize, y: usize, z: f32, rgb: [u8; 3]) {
+        let index = x + y * self.length;
+        if z >= self.depth_buffer[index] {
+            return;
         }
-        self.depth_buffer.fill(f32::MAX);
-    }
-
-    fn pixel(&mut self, x: usize, y: usize, z: f32, rgb: [u8; 3]) {
-        if z < self.depth_buffer[x + y * self.length] {
-            self.to_be_drawn.push(([x, y], rgb));
-            self.depth_buffer[x + y * self.length] = z;
+        let rgba = [rgb[0], rgb[1], rgb[2], 255];
+        if let Some(slice) = frame.get_mut(4*index..4*index + 4) {
+            slice.copy_from_slice(&rgba);
         }
+        self.depth_buffer[index] = z;
     }
 
     fn bounding_box(triangle: &[Vec3A; 3]) -> [usize; 4] {
@@ -55,7 +46,7 @@ impl Draw {
         c.perp_dot(b) + b.perp_dot(a) + a.perp_dot(c)
     }
 
-    pub fn fill_triangle(&mut self, triangle: [Vec3A; 3], rgb: [u8; 3]) {
+    pub fn fill_triangle(&mut self, frame: &mut [u8], triangle: [Vec3A; 3], rgb: [u8; 3]) {
         let [a, b, c] = triangle.map(Vec3A::truncate);
         let z_coordinates = Vec3A::from_array(triangle.map(|point| point.z));
         let [x_min, x_max, y_min, y_max] = Self::bounding_box(&triangle);
@@ -77,9 +68,13 @@ impl Draw {
                     .all(|weight| weight.is_sign_positive())
                 {
                     let z = weights.dot(z_coordinates);
-                    self.pixel(x, y, z, rgb);
+                    self.pixel(frame, x, y, z, rgb);
                 }
             }
         }
+    }
+
+    pub fn clear_depth_buffer(&mut self) {
+        self.depth_buffer.fill(f32::MAX);
     }
 }

@@ -142,13 +142,14 @@ impl App for Application {
                 )
             });
 
+        self.pixels.frame_mut().fill(0);
         for (triangle, normal) in clip(view_space) {
             let screen_space = triangle.map(|point| self.transform(point));
             let rgb = self.rgb_from_normal(normal);
-            self.draw.fill_triangle(screen_space, rgb);
+            self.draw.fill_triangle(self.pixels.frame_mut(), screen_space, rgb);
         }
+        self.draw.clear_depth_buffer();
 
-        self.draw.copy_to_frame(self.pixels.frame_mut());
         self.pixels.render()?;
 
         Ok(())
