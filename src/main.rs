@@ -6,6 +6,7 @@ mod mesh;
 
 use crate::{camera::Camera, draw::Draw};
 use glam::{vec2, vec3a, vec4, Vec2, Vec3A, Vec4};
+use itertools::Itertools;
 use pixels::{Pixels, SurfaceTexture};
 use std::{f32::consts::FRAC_PI_2, fs::File, sync::Arc, time::Duration, time::Instant};
 use win_loop::{
@@ -35,25 +36,13 @@ const CLIPPING_PLANES: [Vec4; 6] = [
 ];
 
 struct Application {
-    mesh: Vec<[Vec3A; 3]>,
+    mesh: Vec<([Vec3A; 3], Vec3A)>,
     pixels: Pixels,
     scale: u32,
     camera: Camera,
     draw: Draw,
     size: Vec2,
     time: Instant,
-}
-#[must_use]
-pub fn centroid(triangle: [Vec3A; 3]) -> Vec3A {
-    triangle.iter().sum::<Vec3A>() / 3.0
-}
-#[must_use]
-fn get_normal([a, b, c]: [Vec3A; 3]) -> Vec3A {
-    -(c - b).cross(c - a).normalize()
-}
-#[must_use]
-fn intersection(plane: Vec4, a: Vec4, b: Vec4) -> Vec4 {
-    a + (b - a) * plane.dot(a) / (plane.dot(a) - plane.dot(b))
 }
 
 fn clip(points: &mut Vec<([Vec4; 3], Vec3A)>) {
@@ -68,7 +57,9 @@ fn clip(points: &mut Vec<([Vec4; 3], Vec3A)>) {
             match inside {
                 1 | 2 => {
                     let [a, b, c] = [1, 2, 3].map(|j| triangle[(3 + j - inside) % 3]);
-                    let [ab, ac] = [b, c].map(|point| intersection(plane, a, point));
+                    let [ab, ac] = [b, c].map(|point| {
+                        a + (point - a) * plane.dot(a) / (plane.dot(a) - plane.dot(point))
+                    });
                     if inside == 1 {
                         points[i] = ([ac, a, ab], normal);
                     } else {
@@ -112,9 +103,6 @@ impl App for Application {
             ctx.exit();
         }
 
-        self.mesh
-            .sort_by(|&a, &b| centroid(a).z.total_cmp(&centroid(b).z));
-
         let keys: Vec<KeyCode> = ctx
             .input
             .physical_keys()
@@ -131,17 +119,19 @@ impl App for Application {
         let mut view_space = self
             .mesh
             .iter()
-            .filter(|&&triangle| {
-                get_normal(triangle)
-                    .dot(self.camera.position - centroid(triangle))
+            .sorted_by(|(a, _), (b, _)| a[0].z.total_cmp(&b[0].z))
+            .filter(|&&(triangle, normal)| {
+                normal
+                    .dot(self.camera.position - triangle[0])
                     .is_sign_positive()
             })
-            .map(|&triangle| {
+            .map(|&(triangle, normal)| {
                 (
                     triangle.map(|p| self.camera.matrix() * p.extend(1.0)),
-                    get_normal(triangle),
+                    normal,
                 )
-            }).collect();
+            })
+            .collect();
         clip(&mut view_space);
 
         self.pixels.frame_mut().fill(0);
