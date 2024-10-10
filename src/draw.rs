@@ -19,7 +19,7 @@ impl Draw {
             return;
         }
         let rgba = [rgb[0], rgb[1], rgb[2], 255];
-        if let Some(slice) = frame.get_mut(4*index..4*index + 4) {
+        if let Some(slice) = frame.get_mut(4 * index..4 * index + 4) {
             slice.copy_from_slice(&rgba);
         }
         self.depth_buffer[index] = z;
@@ -59,8 +59,8 @@ impl Draw {
                 let weights =
                     inverse_area
                         * Vec3A::from_array([[b, c], [c, a], [a, b]].map(|[point_1, point_2]| {
-                        Self::area([point_1, point_2, interior_point])
-                    }));
+                            Self::area([point_1, point_2, interior_point])
+                        }));
 
                 if weights
                     .as_ref()

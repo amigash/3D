@@ -28,8 +28,8 @@ impl Camera {
     }
 
     fn rotation_matrix(&self) -> Mat4 {
-        let (sin_x, cos_x) = self.rotation.x.sin_cos(); 
-        let (sin_y, cos_y) = self.rotation.y.sin_cos(); 
+        let (sin_x, cos_x) = self.rotation.x.sin_cos();
+        let (sin_y, cos_y) = self.rotation.y.sin_cos();
 
         Mat4::from_cols(
             Vec4::new(cos_y, -sin_x * sin_y, -cos_x * sin_y, 0.0),
@@ -38,11 +38,11 @@ impl Camera {
             Vec4::W,
         )
     }
-    
+
     fn translation_matrix(&self) -> Mat4 {
         Mat4::from_translation(Vec3::from(-self.position))
     }
-    
+
     fn view_matrix(&self) -> Mat4 {
         self.rotation_matrix() * self.translation_matrix()
     }
@@ -57,7 +57,7 @@ impl Camera {
         let camera_matrix = self.view_matrix().inverse();
         let right = Vec3A::from_vec4(camera_matrix.col(0));
         let forward = -Vec3A::from_vec4(camera_matrix.col(2)).with_y(0.0);
-        
+
         for key in keys {
             match key {
                 KeyCode::KeyW => translation += forward,
