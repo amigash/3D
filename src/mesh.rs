@@ -7,7 +7,7 @@ use std::{
 use win_loop::anyhow::{anyhow, Result};
 
 fn normal([a, b, c]: [Vec3A; 3]) -> Vec3A {
-    -(c - b).cross(c - a).normalize()
+    (b - c).cross(c - a).normalize()
 }
 
 pub fn load_from_obj_file(file: File) -> Result<Vec<([Vec3A; 3], Vec3A)>> {
