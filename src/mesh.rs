@@ -6,7 +6,11 @@ use std::{
 
 use win_loop::anyhow::{anyhow, Result};
 
-pub fn load_from_obj_file(file: File) -> Result<Vec<[Vec3A; 3]>> {
+fn normal([a, b, c]: [Vec3A; 3]) -> Vec3A {
+    -(c - b).cross(c - a).normalize()
+}
+
+pub fn load_from_obj_file(file: File) -> Result<Vec<([Vec3A; 3], Vec3A)>> {
     let reader = BufReader::new(file);
     let mut mesh = vec![];
     let mut vertices = vec![];
@@ -33,7 +37,7 @@ pub fn load_from_obj_file(file: File) -> Result<Vec<[Vec3A; 3]>> {
                         .parse::<usize>()?;
                     *point = vertices[index - 1];
                 }
-                mesh.push(points);
+                mesh.push((points, normal(points)));
             }
             _ => (),
         }

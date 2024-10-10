@@ -1,4 +1,4 @@
-use glam::{Mat4, Vec2, Vec3A};
+use glam::{Mat4, Vec2, Vec3, Vec3A, Vec4};
 use std::f32::consts::{FRAC_PI_2, TAU};
 use win_loop::winit::keyboard::KeyCode;
 
@@ -23,35 +23,41 @@ impl Camera {
         }
     }
 
-    pub fn forward(&self) -> Vec3A {
-        let (x_sin, x_cos) = self.rotation.x.sin_cos();
-        let (y_sin, y_cos) = self.rotation.y.sin_cos();
-        Vec3A::new(y_cos * x_cos, x_sin, y_sin * x_cos)
-    }
-
-    fn right(&self) -> Vec3A {
-        self.forward().cross(Vec3A::Y).normalize()
-    }
-
-    fn up(&self) -> Vec3A {
-        self.right().cross(self.forward()).normalize()
-    }
-
-    pub fn matrix(&self) -> Mat4 {
+    fn projection_matrix(&self) -> Mat4 {
         Mat4::perspective_rh(Self::FOV, self.aspect_ratio, Self::Z_NEAR, Self::Z_FAR)
-            * Mat4::look_to_rh(
-            self.position.into(),
-            self.forward().into(),
-            self.up().into(),
+    }
+
+    fn rotation_matrix(&self) -> Mat4 {
+        let (sin_x, cos_x) = self.rotation.x.sin_cos(); 
+        let (sin_y, cos_y) = self.rotation.y.sin_cos(); 
+
+        Mat4::from_cols(
+            Vec4::new(cos_y, -sin_x * sin_y, -cos_x * sin_y, 0.0),
+            Vec4::new(0.0, cos_x, -sin_x, 0.0),
+            Vec4::new(sin_y, cos_y * sin_x, cos_x * cos_y, 0.0),
+            Vec4::W,
         )
+    }
+    
+    fn translation_matrix(&self) -> Mat4 {
+        Mat4::from_translation(Vec3::from(-self.position))
+    }
+    
+    fn view_matrix(&self) -> Mat4 {
+        self.rotation_matrix() * self.translation_matrix()
+    }
+
+    pub fn view_projection_matrix(&self) -> Mat4 {
+        self.projection_matrix() * self.view_matrix()
     }
 
     pub fn update(&mut self, keys: &[KeyCode]) {
         let mut translation = Vec3A::ZERO;
 
-        let right = self.right();
-        let forward = self.forward().with_y(0.0).normalize();
-
+        let camera_matrix = self.view_matrix().inverse();
+        let right = Vec3A::from_vec4(camera_matrix.col(0));
+        let forward = -Vec3A::from_vec4(camera_matrix.col(2)).with_y(0.0);
+        
         for key in keys {
             match key {
                 KeyCode::KeyW => translation += forward,

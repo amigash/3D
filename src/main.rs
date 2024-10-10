@@ -8,7 +8,7 @@ use crate::{camera::Camera, draw::Draw};
 use glam::{vec2, vec3a, vec4, Vec2, Vec3A, Vec4};
 use itertools::Itertools;
 use pixels::{Pixels, SurfaceTexture};
-use std::{f32::consts::FRAC_PI_2, fs::File, sync::Arc, time::Duration, time::Instant};
+use std::{fs::File, sync::Arc, time::Duration, time::Instant};
 use win_loop::{
     anyhow::Result,
     start,
@@ -127,7 +127,7 @@ impl App for Application {
             })
             .map(|&(triangle, normal)| {
                 (
-                    triangle.map(|p| self.camera.matrix() * p.extend(1.0)),
+                    triangle.map(|p| self.camera.view_projection_matrix() * p.extend(1.0)),
                     normal,
                 )
             })
@@ -190,7 +190,7 @@ fn main() -> Result<()> {
         mesh: mesh::load_from_obj_file(File::open("assets/teapot.obj")?)?,
         pixels: Pixels::new(width, height, SurfaceTexture::new(WIDTH, HEIGHT, &window))?,
         scale: SCALE,
-        camera: Camera::new(vec3a(0.0, 2.5, 5.0), vec2(0.0, -FRAC_PI_2)),
+        camera: Camera::new(vec3a(0.0, 2.5, 5.0), vec2(0.0, 0.0)),
         draw: Draw::new(width as usize, height as usize),
         size: vec2(WIDTH as f32, HEIGHT as f32),
         time: Instant::now(),
