@@ -30,11 +30,11 @@ impl Camera {
     }
 
     fn right(&self) -> Vec3A {
-        self.forward().cross(Vec3A::Y).normalize()
+        self.forward().cross(Vec3A::Y)
     }
 
     fn up(&self) -> Vec3A {
-        self.right().cross(self.forward()).normalize()
+        self.right().cross(self.forward())
     }
 
     pub fn matrix(&self) -> Mat4 {
