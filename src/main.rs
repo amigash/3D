@@ -45,12 +45,12 @@ struct Application {
     time: Instant,
 }
 
-fn clip(points: &mut Vec<([Vec4; 3], Vec3A)>) {
+fn clip(triangles: &mut Vec<([Vec4; 3], Vec3A)>) {
     for plane in CLIPPING_PLANES {
         let mut i = 0;
-        let mut length = points.len();
+        let mut length = triangles.len();
         while i < length {
-            let (mut triangle, normal) = points[i];
+            let (mut triangle, normal) = triangles[i];
             let inside = triangle
                 .iter_mut()
                 .partition_in_place(|point| point.dot(plane).is_sign_positive());
@@ -58,20 +58,21 @@ fn clip(points: &mut Vec<([Vec4; 3], Vec3A)>) {
                 1 | 2 => {
                     let [a, b, c] = [1, 2, 3].map(|j| triangle[(3 + j - inside) % 3]);
                     let [ab, ac] = [b, c].map(|point| {
-                        a + (point - a) * plane.dot(a) / (plane.dot(a) - plane.dot(point))
+                        let t = plane.dot(a) / (plane.dot(a) - plane.dot(point));
+                        Vec4::lerp(a, point, t)
                     });
                     if inside == 1 {
-                        points[i] = ([ac, a, ab], normal);
+                        triangles[i] = ([ac, a, ab], normal);
                     } else {
-                        points[i] = ([ac, b, ab], normal);
-                        points.push(([c, b, ac], normal));
+                        triangles[i] = ([ac, b, ab], normal);
+                        triangles.push(([c, b, ac], normal));
                         length += 1;
                     }
                     i += 1;
                 }
                 3 => i += 1,
                 _ => {
-                    points.swap_remove(i);
+                    triangles.swap_remove(i);
                     length -= 1;
                 }
             }
@@ -88,7 +89,7 @@ impl Application {
     }
 
     fn rgb_from_normal(&self, normal: Vec3A) -> [u8; 3] {
-        let speed = 0.25;
+        let speed = 0.025;
         let angle = self.time.elapsed().as_secs_f32() * speed;
         let light_direction = Vec3A::new(angle.cos(), angle.sin(), 0.0);
         let intensity = normal.dot(light_direction).max(0.01);
@@ -164,7 +165,9 @@ impl App for Application {
             Event::DeviceEvent {
                 event: DeviceEvent::MouseMotion { delta: (dx, dy) },
                 ..
-            } => self.camera.update_rotation(Vec2::new(-dy as f32, dx as f32)),
+            } => self
+                .camera
+                .update_rotation(Vec2::new(-dy as f32, dx as f32)),
             _ => (),
         }
         Ok(())
