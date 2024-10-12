@@ -56,7 +56,9 @@ impl Camera {
 
         let camera_matrix = self.view_matrix().inverse();
         let right = Vec3A::from_vec4(camera_matrix.col(0));
-        let forward = -Vec3A::from_vec4(camera_matrix.col(2)).with_y(0.0);
+        let forward = -Vec3A::from_vec4(camera_matrix.col(2))
+            .with_y(0.0)
+            .normalize();
 
         for key in keys {
             match key {
