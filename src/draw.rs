@@ -9,20 +9,20 @@ impl Draw {
     pub fn new(width: usize, height: usize) -> Self {
         Draw {
             length: width,
-            depth_buffer: vec![f32::MAX; width * height],
+            depth_buffer: vec![0.0; width * height],
         }
     }
 
     fn pixel(&mut self, frame: &mut [u8], x: usize, y: usize, z: f32, rgb: [u8; 3]) {
         let index = x + y * self.length;
-        if z >= self.depth_buffer[index] {
+        if z.recip() < self.depth_buffer[index] {
             return;
         }
         let rgba = [rgb[0], rgb[1], rgb[2], 255];
         if let Some(slice) = frame.get_mut(4 * index..4 * index + 4) {
             slice.copy_from_slice(&rgba);
         }
-        self.depth_buffer[index] = z;
+        self.depth_buffer[index] = z.recip();
     }
 
     fn bounding_box(triangle: &[Vec3A; 3]) -> [usize; 4] {
@@ -69,6 +69,6 @@ impl Draw {
     }
 
     pub fn clear_depth_buffer(&mut self) {
-        self.depth_buffer.fill(f32::MAX);
+        self.depth_buffer.fill(0.0);
     }
 }
