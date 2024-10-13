@@ -1,20 +1,23 @@
 use glam::{Vec2, Vec3A};
+use crate::triangle::Triangle;
 
 pub struct Draw {
-    length: usize,
+    width: usize,
+    height: usize,
     depth_buffer: Vec<f32>,
 }
 
 impl Draw {
     pub fn new(width: usize, height: usize) -> Self {
         Draw {
-            length: width,
+            width,
+            height,
             depth_buffer: vec![0.0; width * height],
         }
     }
 
     fn pixel(&mut self, frame: &mut [u8], x: usize, y: usize, z: f32, rgb: [u8; 3]) {
-        let index = x + y * self.length;
+        let index = x + y * self.width;
         if z.recip() < self.depth_buffer[index] {
             return;
         }
@@ -25,27 +28,28 @@ impl Draw {
         self.depth_buffer[index] = z.recip();
     }
 
-    fn bounding_box(triangle: &[Vec3A; 3]) -> [usize; 4] {
-        triangle
+    fn bounding_box(&self, vertices: &[Vec3A; 3]) -> [usize; 4] {
+        vertices
             .iter()
             .fold(
                 [f32::MAX, f32::MIN, f32::MAX, f32::MIN],
                 |[x_min, x_max, y_min, y_max], e| {
                     [
-                        x_min.min(e.x),
-                        x_max.max(e.x),
-                        y_min.min(e.y),
-                        y_max.max(e.y),
+                        x_min.min(e.x).clamp(0.0, (self.width - 1) as f32),
+                        x_max.max(e.x).clamp(0.0, (self.width - 1) as f32),
+                        y_min.min(e.y).clamp(0.0, (self.height - 1) as f32),
+                        y_max.max(e.y).clamp(0.0, (self.height - 1) as f32),
                     ]
                 },
             )
             .map(|n| n.round() as usize)
     }
-    
-    pub fn fill_triangle(&mut self, frame: &mut [u8], triangle: [Vec3A; 3], rgb: [u8; 3]) {
-        let [a, b, c] = triangle.map(Vec3A::truncate);
-        let z_coordinates = Vec3A::from_array(triangle.map(|point| point.z));
-        let [x_min, x_max, y_min, y_max] = Self::bounding_box(&triangle);
+
+    pub fn fill_triangle(&mut self, frame: &mut [u8], triangle: &Triangle) {
+        let vertices = triangle.vertices();
+        let [a, b, c] = vertices.map(Vec3A::truncate);
+        let z_coordinates = Vec3A::from_array(vertices.map(|point| point.z));
+        let [x_min, x_max, y_min, y_max] = self.bounding_box(&vertices);
         let [c_b, b_a, a_c] = [c.perp_dot(b), b.perp_dot(a), a.perp_dot(c)];
         let inverse_area = (c_b + b_a + a_c).recip();
 
@@ -62,6 +66,7 @@ impl Draw {
                     .all(|weight| weight.is_sign_positive())
                 {
                     let z = weights.dot(z_coordinates);
+                    let rgb = (Vec3A::splat(255.0) * weights).to_array().map(|n|n as _);
                     self.pixel(frame, x, y, z, rgb);
                 }
             }

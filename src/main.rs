@@ -1,14 +1,12 @@
-#![feature(iter_partition_in_place)]
-
 mod camera;
 mod draw;
 mod mesh;
+mod triangle;
 
 use crate::{camera::Camera, draw::Draw};
-use glam::{Vec2, Vec3A, Vec4};
-use itertools::Itertools;
+use glam::{Vec2, Vec3A};
 use pixels::{Pixels, SurfaceTexture};
-use std::{fs::File, sync::Arc, time::Duration, time::Instant};
+use std::{fs::File, sync::Arc, time::Duration};
 use win_loop::{
     anyhow::Result,
     start,
@@ -21,85 +19,32 @@ use win_loop::{
     },
     App, Context, InputState,
 };
+use crate::triangle::Triangle;
 
 const WIDTH: u32 = 2560;
 const HEIGHT: u32 = 1600;
 const SCALE: u32 = 2;
+const TARGET_FRAME_TIME_SECONDS: f32 = 1.0 / 144.0;
+const MAX_FRAME_TIME_SECONDS: f32 = 0.1;
+const CAMERA_POSITION: Vec3A = Vec3A::new(0.0, 2.5, 5.0);
+const CAMERA_ROTATION: Vec2 = Vec2::ZERO;
 
-const CLIPPING_PLANES: [Vec4; 6] = [
-    Vec4::new(0.0, 0.0, 1.0, 1.0),  // Near
-    Vec4::new(0.0, 0.0, -1.0, 1.0), // Far
-    Vec4::new(1.0, 0.0, 0.0, 1.0),  // Left
-    Vec4::new(-1.0, 0.0, 0.0, 1.0), // Right
-    Vec4::new(0.0, -1.0, 0.0, 1.0), // Top
-    Vec4::new(0.0, 1.0, 0.0, 1.0),  // Bottom
-];
 
 struct Application {
-    mesh: Vec<([Vec3A; 3], Vec3A)>,
+    mesh: Vec<Triangle>,
     pixels: Pixels,
     scale: u32,
     camera: Camera,
     draw: Draw,
     size: Vec2,
-    time: Instant,
-}
-
-fn clip(triangles: &mut Vec<([Vec4; 3], Vec3A)>) {
-    for plane in CLIPPING_PLANES {
-        let mut i = 0;
-        let mut length = triangles.len();
-        while i < length {
-            let (mut triangle, normal) = triangles[i];
-            let inside = triangle
-                .iter_mut()
-                .partition_in_place(|point| point.dot(plane).is_sign_positive());
-            match inside {
-                1 | 2 => {
-                    let [a, b, c] = [1, 2, 3].map(|j| triangle[(3 + j - inside) % 3]);
-                    let [ab, ac] = [b, c].map(|point| {
-                        let t = plane.dot(a) / (plane.dot(a) - plane.dot(point));
-                        Vec4::lerp(a, point, t)
-                    });
-                    if inside == 1 {
-                        triangles[i] = ([ac, a, ab], normal);
-                    } else {
-                        triangles[i] = ([ac, b, ab], normal);
-                        triangles.push(([c, b, ac], normal));
-                        length += 1;
-                    }
-                    i += 1;
-                }
-                3 => i += 1,
-                _ => {
-                    triangles.swap_remove(i);
-                    length -= 1;
-                }
-            }
-        }
-    }
-}
-
-impl Application {
-    fn transform(&self, point: Vec4) -> Vec3A {
-        let perspective_divided = Vec3A::from_vec4(point / point.w);
-        let flipped = perspective_divided * Vec3A::new(1.0, -1.0, 1.0);
-        let centered = flipped + Vec3A::new(1.0, 1.0, 0.0);
-        centered * Vec3A::from((0.5 * (self.size - Vec2::ONE)).extend(1.0))
-    }
-
-    fn rgb_from_normal(&self, normal: Vec3A) -> [u8; 3] {
-        let speed = 0.025;
-        let angle = self.time.elapsed().as_secs_f32() * speed;
-        let light_direction = Vec3A::new(angle.cos(), angle.sin(), 0.0);
-        let intensity = normal.dot(light_direction).max(0.01);
-        let color = (intensity * 255.0) as u8;
-        [color; 3]
-    }
 }
 
 impl App for Application {
     fn update(&mut self, ctx: &mut Context) -> Result<()> {
+        // Keeps the mesh sorted so that closer triangles are drawn first, resulting in fewer draw calls. 
+        self.mesh
+            .sort_unstable_by(|a, b| a.vertices()[0].z.total_cmp(&b.vertices()[0].z));
+
         if ctx.input.is_logical_key_pressed(NamedKey::Escape) {
             ctx.exit();
         }
@@ -117,33 +62,48 @@ impl App for Application {
     }
 
     fn render(&mut self, _blending_factor: f64) -> Result<()> {
-        let mut view_space = self
-            .mesh
-            .iter()
-            .sorted_by(|(a, _), (b, _)| a[0].z.total_cmp(&b[0].z))
-            .filter(|&&(triangle, normal)| {
-                normal
-                    .dot(self.camera.position - triangle[0])
-                    .is_sign_positive()
-            })
-            .map(|&(triangle, normal)| {
-                (
-                    triangle.map(|p| self.camera.view_projection_matrix() * p.extend(1.0)),
-                    normal,
-                )
-            })
-            .collect();
-        clip(&mut view_space);
+        let size = self.size;
+        let camera_position = self.camera.position;
+        let view_projection_matrix = self.camera.view_projection_matrix();
+        let forward = self.camera.forward();
+
+        let transform_point = |point: Vec3A| {
+            let projected = view_projection_matrix * point.extend(1.0);
+            let perspective_divided = Vec3A::from_vec4(projected / projected.w);
+            let flipped = perspective_divided.with_y(-perspective_divided.y);
+            let centered = flipped + Vec3A::new(1.0, 1.0, 0.0);
+            centered * Vec3A::from((0.5 * (size - Vec2::ONE)).extend(1.0))
+        };
+        
+        let transform = |triangle: &Triangle| {
+            Triangle::from(triangle.vertices().map(transform_point))
+        };
+        
+        let is_facing_camera = |triangle: &Triangle| {
+            triangle.normal().dot(camera_position - triangle.vertices()[0]).is_sign_positive()
+        };
+        
+        let is_ahead_of_camera = |triangle: &Triangle| {
+            triangle
+                .vertices()
+                .iter()
+                .all(|vertex| forward.dot(vertex - camera_position).is_sign_positive())
+        };
+        
+        let is_visible = |triangle: &&Triangle| {
+            is_facing_camera(triangle) && is_ahead_of_camera(triangle)
+        };
 
         self.pixels.frame_mut().fill(0);
-        for (triangle, normal) in view_space {
-            let screen_space = triangle.map(|point| self.transform(point));
-            let rgb = self.rgb_from_normal(normal);
-            self.draw
-                .fill_triangle(self.pixels.frame_mut(), screen_space, rgb);
-        }
+        self.mesh
+            .iter()
+            .filter(is_visible)
+            .map(transform)
+            .for_each(|triangle| {
+                self.draw
+                    .fill_triangle(self.pixels.frame_mut(), &triangle);
+            });
         self.draw.clear_depth_buffer();
-
         self.pixels.render()?;
 
         Ok(())
@@ -193,14 +153,13 @@ fn main() -> Result<()> {
         mesh: mesh::load_from_obj_file(File::open("assets/teapot.obj")?)?,
         pixels: Pixels::new(width, height, SurfaceTexture::new(WIDTH, HEIGHT, &window))?,
         scale: SCALE,
-        camera: Camera::new(Vec3A::new(0.0, 2.5, 5.0), Vec2::ZERO),
+        camera: Camera::new(CAMERA_POSITION, CAMERA_ROTATION),
         draw: Draw::new(width as usize, height as usize),
         size: Vec2::new(WIDTH as f32, HEIGHT as f32),
-        time: Instant::now(),
     };
 
-    let target_frame_time = Duration::from_secs_f32(1. / 144.); // 144 fps
-    let max_frame_time = Duration::from_secs_f32(0.1);
+    let target_frame_time = Duration::from_secs_f32(TARGET_FRAME_TIME_SECONDS);
+    let max_frame_time = Duration::from_secs_f32(MAX_FRAME_TIME_SECONDS);
 
     start(event_loop, window, app, target_frame_time, max_frame_time)
 }

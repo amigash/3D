@@ -5,12 +5,9 @@ use std::{
 };
 
 use win_loop::anyhow::{anyhow, Result};
+use crate::triangle::Triangle;
 
-fn normal([a, b, c]: [Vec3A; 3]) -> Vec3A {
-    (b - c).cross(c - a).normalize()
-}
-
-pub fn load_from_obj_file(file: File) -> Result<Vec<([Vec3A; 3], Vec3A)>> {
+pub fn load_from_obj_file(file: File) -> Result<Vec<Triangle>> {
     let reader = BufReader::new(file);
     let mut mesh = vec![];
     let mut vertices = vec![];
@@ -34,10 +31,13 @@ pub fn load_from_obj_file(file: File) -> Result<Vec<([Vec3A; 3], Vec3A)>> {
                     let index = words
                         .next()
                         .ok_or(anyhow!("Expected another index"))?
+                        .split('/')
+                        .next()
+                        .unwrap()
                         .parse::<usize>()?;
                     *point = vertices[index - 1];
                 }
-                mesh.push((points, normal(points)));
+                mesh.push(Triangle::from(points));
             }
             _ => (),
         }

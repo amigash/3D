@@ -54,6 +54,10 @@ impl Camera {
         self.projection_matrix() * self.view_matrix()
     }
 
+    pub fn forward(&self) -> Vec3A {
+        -Vec3A::from_vec4(self.view_matrix().inverse().col(2))
+    }
+
     pub fn update(&mut self, keys: &[KeyCode]) {
         let mut translation = Vec3A::ZERO;
 
