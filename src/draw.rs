@@ -32,13 +32,13 @@ impl Draw {
         vertices
             .iter()
             .fold(
-                [f32::MAX, f32::MIN, f32::MAX, f32::MIN],
+                [(self.width as f32) - 1.0, 0.0, (self.height - 1) as f32, 0.0],
                 |[x_min, x_max, y_min, y_max], e| {
                     [
-                        x_min.min(e.x).clamp(0.0, (self.width - 1) as f32),
-                        x_max.max(e.x).clamp(0.0, (self.width - 1) as f32),
-                        y_min.min(e.y).clamp(0.0, (self.height - 1) as f32),
-                        y_max.max(e.y).clamp(0.0, (self.height - 1) as f32),
+                        x_min.min(e.x).max(0.0),
+                        x_max.max(e.x).min((self.width as f32) - 1.0),
+                        y_min.min(e.y).max(0.0),
+                        y_max.max(e.y).min((self.height as f32) - 1.0),
                     ]
                 },
             )
