@@ -1,5 +1,5 @@
-use glam::{Vec2, Vec3A};
 use crate::triangle::Triangle;
+use glam::{Vec2, Vec3A};
 
 pub struct Draw {
     width: usize,
@@ -66,7 +66,7 @@ impl Draw {
                     .all(|weight| weight.is_sign_positive())
                 {
                     let z = weights.dot(z_coordinates);
-                    let rgb = (Vec3A::splat(255.0) * weights).to_array().map(|n|n as _);
+                    let rgb = (Vec3A::splat(255.0) * weights).to_array().map(|n| n as _);
                     self.pixel(frame, x, y, z, rgb);
                 }
             }

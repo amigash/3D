@@ -4,8 +4,8 @@ use std::{
     io::{BufRead, BufReader},
 };
 
-use win_loop::anyhow::{anyhow, Result};
 use crate::triangle::Triangle;
+use win_loop::anyhow::{anyhow, Result};
 
 pub fn load_from_obj_file(file: File) -> Result<Vec<Triangle>> {
     let reader = BufReader::new(file);

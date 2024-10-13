@@ -14,11 +14,11 @@ impl Triangle {
             normal: (b - c).cross(c - a).normalize(),
         }
     }
-    
+
     pub fn vertices(&self) -> [Vertex; 3] {
         self.vertices
     }
-    
+
     pub fn normal(&self) -> Vertex {
         self.normal
     }

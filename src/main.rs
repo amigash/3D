@@ -3,7 +3,11 @@ mod draw;
 mod mesh;
 mod triangle;
 
-use crate::{camera::Camera, draw::Draw};
+use crate::{
+    triangle::Triangle,
+    camera::Camera,
+    draw::Draw
+};
 use glam::{Vec2, Vec3A};
 use pixels::{Pixels, SurfaceTexture};
 use std::{fs::File, sync::Arc, time::Duration};
@@ -19,7 +23,6 @@ use win_loop::{
     },
     App, Context, InputState,
 };
-use crate::triangle::Triangle;
 
 const WIDTH: u32 = 2560;
 const HEIGHT: u32 = 1600;
@@ -28,7 +31,6 @@ const TARGET_FRAME_TIME_SECONDS: f32 = 1.0 / 144.0;
 const MAX_FRAME_TIME_SECONDS: f32 = 0.1;
 const CAMERA_POSITION: Vec3A = Vec3A::new(0.0, 2.5, 5.0);
 const CAMERA_ROTATION: Vec2 = Vec2::ZERO;
-
 
 struct Application {
     mesh: Vec<Triangle>,
@@ -41,7 +43,7 @@ struct Application {
 
 impl App for Application {
     fn update(&mut self, ctx: &mut Context) -> Result<()> {
-        // Keeps the mesh sorted so that closer triangles are drawn first, resulting in fewer draw calls. 
+        // Keeps the mesh sorted so that closer triangles are drawn first, resulting in fewer draw calls.
         self.mesh
             .sort_unstable_by(|a, b| a.vertices()[0].z.total_cmp(&b.vertices()[0].z));
 
@@ -74,35 +76,31 @@ impl App for Application {
             let centered = flipped + Vec3A::new(1.0, 1.0, 0.0);
             centered * Vec3A::from((0.5 * (size - Vec2::ONE)).extend(1.0))
         };
-        
-        let transform = |triangle: &Triangle| {
-            Triangle::from(triangle.vertices().map(transform_point))
-        };
-        
+
+        let transform =
+            |triangle: &Triangle| Triangle::from(triangle.vertices().map(transform_point));
+
         let is_facing_camera = |triangle: &Triangle| {
-            triangle.normal().dot(camera_position - triangle.vertices()[0]).is_sign_positive()
+            triangle
+                .normal()
+                .dot(camera_position - triangle.vertices()[0])
+                .is_sign_positive()
         };
-        
+
         let is_ahead_of_camera = |triangle: &Triangle| {
             triangle
                 .vertices()
                 .iter()
                 .all(|vertex| forward.dot(vertex - camera_position).is_sign_positive())
         };
-        
-        let is_visible = |triangle: &&Triangle| {
-            is_facing_camera(triangle) && is_ahead_of_camera(triangle)
-        };
+
+        let is_visible =
+            |triangle: &&Triangle| is_facing_camera(triangle) && is_ahead_of_camera(triangle);
 
         self.pixels.frame_mut().fill(0);
-        self.mesh
-            .iter()
-            .filter(is_visible)
-            .map(transform)
-            .for_each(|triangle| {
-                self.draw
-                    .fill_triangle(self.pixels.frame_mut(), &triangle);
-            });
+        for triangle in self.mesh.iter().filter(is_visible).map(transform) {
+            self.draw.fill_triangle(self.pixels.frame_mut(), &triangle);
+        }
         self.draw.clear_depth_buffer();
         self.pixels.render()?;
 
