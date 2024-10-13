@@ -2,6 +2,9 @@ use glam::{Mat4, Vec2, Vec3, Vec3A, Vec4};
 use std::f32::consts::{FRAC_PI_2, TAU};
 use win_loop::winit::keyboard::KeyCode;
 
+const MIN_PITCH: f32 = 0.99 * -FRAC_PI_2;
+const MAX_PITCH: f32 = 0.99 * FRAC_PI_2;
+
 pub struct Camera {
     pub position: Vec3A,
     rotation: Vec2,
@@ -77,7 +80,7 @@ impl Camera {
 
     pub fn update_rotation(&mut self, delta: Vec2) {
         self.rotation += delta * Self::SENSITIVITY;
-        self.rotation.x = self.rotation.x.clamp(0.99 * -FRAC_PI_2, 0.99 * FRAC_PI_2);
+        self.rotation.x = self.rotation.x.clamp(MIN_PITCH, MAX_PITCH);
         self.rotation.y = self.rotation.y.rem_euclid(TAU);
     }
 }
