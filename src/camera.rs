@@ -17,7 +17,6 @@ pub struct Camera {
 }
 
 impl Camera {
-
     pub fn new(position: Vec3A, rotation: Vec2) -> Self {
         Camera {
             position,

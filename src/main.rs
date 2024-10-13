@@ -3,11 +3,7 @@ mod draw;
 mod mesh;
 mod triangle;
 
-use crate::{
-    triangle::Triangle,
-    camera::Camera,
-    draw::Draw
-};
+use crate::{camera::Camera, draw::Draw, triangle::Triangle};
 use glam::{Vec2, Vec3A};
 use pixels::{Pixels, SurfaceTexture};
 use std::{fs::File, sync::Arc, time::Duration};

@@ -1,14 +1,9 @@
+use crate::triangle::Triangle;
 use glam::Vec3A;
 use std::{
     fs::File,
-    io::{self, BufRead, BufReader},
-    io::Error,
-    io::ErrorKind::InvalidData
+    io::{self, BufRead, BufReader, Error, ErrorKind::InvalidData},
 };
-use crate::triangle::Triangle;
-use win_loop::anyhow::{anyhow, Result};
-
-}
 
 pub fn load_from_obj_file(file: File) -> io::Result<Vec<Triangle>> {
     let reader = BufReader::new(file);
@@ -25,9 +20,22 @@ pub fn load_from_obj_file(file: File) -> io::Result<Vec<Triangle>> {
                 for coordinate in vertex.as_mut() {
                     *coordinate = words
                         .next()
-                        .ok_or_else(|| Error::new(InvalidData, format!("Missing vertex coordinate on line {}", line_number + 1)))?
+                        .ok_or_else(|| {
+                            Error::new(
+                                InvalidData,
+                                format!("Missing vertex coordinate on line {}", line_number + 1),
+                            )
+                        })?
                         .parse()
-                        .map_err(|_| Error::new(InvalidData, format!("Failed to parse vertex coordinate on line {}", line_number + 1)))?;
+                        .map_err(|_| {
+                            Error::new(
+                                InvalidData,
+                                format!(
+                                    "Failed to parse vertex coordinate on line {}",
+                                    line_number + 1
+                                ),
+                            )
+                        })?;
                 }
                 vertices.push(vertex);
             }
@@ -36,13 +44,28 @@ pub fn load_from_obj_file(file: File) -> io::Result<Vec<Triangle>> {
                 for point in &mut points {
                     let index = words
                         .next()
-                        .ok_or_else(|| Error::new(InvalidData, format!("Missing face index on line {}", line_number + 1)))?
+                        .ok_or_else(|| {
+                            Error::new(
+                                InvalidData,
+                                format!("Missing face index on line {}", line_number + 1),
+                            )
+                        })?
                         .split('/')
                         .next()
                         .unwrap()
                         .parse::<usize>()
-                        .map_err(|_| Error::new(InvalidData, format!("Failed to parse face index on line {}", line_number + 1)))?;
-                    *point = *vertices.get(index).ok_or_else(|| Error::new(InvalidData, format!("Vertex index out of bounds on line {}", line_number + 1)))?;
+                        .map_err(|_| {
+                            Error::new(
+                                InvalidData,
+                                format!("Failed to parse face index on line {}", line_number + 1),
+                            )
+                        })?;
+                    *point = *vertices.get(index).ok_or_else(|| {
+                        Error::new(
+                            InvalidData,
+                            format!("Vertex index out of bounds on line {}", line_number + 1),
+                        )
+                    })?;
                 }
                 mesh.push(Triangle::from(points));
             }
