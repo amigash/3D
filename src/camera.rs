@@ -4,6 +4,11 @@ use win_loop::winit::keyboard::KeyCode;
 
 const MIN_PITCH: f32 = 0.99 * -FRAC_PI_2;
 const MAX_PITCH: f32 = 0.99 * FRAC_PI_2;
+const Z_NEAR: f32 = 0.1;
+const Z_FAR: f32 = 500.0;
+const SPEED: f32 = 0.01;
+const SENSITIVITY: f32 = 0.003;
+const FOV: f32 = FRAC_PI_2;
 
 pub struct Camera {
     pub position: Vec3A,
@@ -12,11 +17,6 @@ pub struct Camera {
 }
 
 impl Camera {
-    const Z_NEAR: f32 = 0.1;
-    const Z_FAR: f32 = 500.0;
-    const SPEED: f32 = 0.1;
-    const SENSITIVITY: f32 = 0.003;
-    const FOV: f32 = FRAC_PI_2;
 
     pub fn new(position: Vec3A, rotation: Vec2) -> Self {
         Camera {
@@ -27,7 +27,7 @@ impl Camera {
     }
 
     fn projection_matrix(&self) -> Mat4 {
-        Mat4::perspective_rh(Self::FOV, self.aspect_ratio, Self::Z_NEAR, Self::Z_FAR)
+        Mat4::perspective_rh(FOV, self.aspect_ratio, Z_NEAR, Z_FAR)
     }
 
     fn rotation_matrix(&self) -> Mat4 {
@@ -79,11 +79,11 @@ impl Camera {
             }
         }
 
-        self.position += translation * Self::SPEED;
+        self.position += translation * SPEED;
     }
 
     pub fn update_rotation(&mut self, delta: Vec2) {
-        self.rotation += delta * Self::SENSITIVITY;
+        self.rotation += delta * SENSITIVITY;
         self.rotation.x = self.rotation.x.clamp(MIN_PITCH, MAX_PITCH);
         self.rotation.y = self.rotation.y.rem_euclid(TAU);
     }
