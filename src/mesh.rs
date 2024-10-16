@@ -49,11 +49,16 @@ pub fn load_mtl_file(path: impl AsRef<Path>) -> Result<HashMap<String, Texture>>
                 if material_name.is_some() {
                     bail!("Material name defined without being used")
                 }
-                let name = words.next().with_context(|| "No material specified")?.to_string();
+                let name = words
+                    .next()
+                    .with_context(|| "No material specified")?
+                    .to_string();
                 material_name = Some(name);
             }
             "map_Kd" => {
-                let name = material_name.take().with_context(|| "No material name specified")?;
+                let name = material_name
+                    .take()
+                    .with_context(|| "No material name specified")?;
                 let image_string = words.next().with_context(|| "No path specified")?;
                 let partial_image_path: &Path = image_string.as_ref();
                 let image_path = if let Some(parent_directory) = path.as_ref().parent() {
@@ -92,7 +97,7 @@ pub struct ObjectData {
 
 pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
     let path = path.as_ref();
-    
+
     // Initialize with a dummy value to offset one-based indexing
     let mut vertices = vec![Vec3A::default()];
     let mut texture_coordinates = vec![Vec3A::default()];
@@ -106,9 +111,13 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
     let reader = BufReader::new(File::open(path)?);
     for (line_number, line) in reader.lines().enumerate() {
         let err = |message: &str| {
-            format!("In \"{}\" on line {}: {message}", line_number + 1, path.display())
+            format!(
+                "In \"{}\" on line {}: {message}",
+                line_number + 1,
+                path.display()
+            )
         };
-        
+
         let line = line?;
         let mut words = line
             .split_whitespace()
@@ -120,7 +129,9 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
         match command.as_ref() {
             "mtllib" => {
                 if material_library.as_ref().is_some() {
-                    bail!(err("Referencing multiple .mtl files is not currently supported"));
+                    bail!(err(
+                        "Referencing multiple .mtl files is not currently supported"
+                    ));
                 }
                 let library_string = words.next().with_context(|| err("No path provided"))?;
                 let partial_library_path: &Path = library_string.as_ref();
@@ -140,15 +151,17 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
             }
             coordinate_type @ ("v" | "vn" | "vt") => {
                 let destination = match coordinate_type {
-                  "v" => &mut vertices,
-                  "vn" => &mut normals,
-                  "vt" => &mut texture_coordinates,
+                    "v" => &mut vertices,
+                    "vn" => &mut normals,
+                    "vt" => &mut texture_coordinates,
                     _ => unreachable!("Match arms should reflect coordinate_type"),
                 };
-                
-                // We want to treat every `vt {u} {v}` as `vt {u} {v} 1.0` for later perspective transforms 
-                let texture_extension = (coordinate_type == "vt").then_some("1.0".to_string()).into_iter();
-                
+
+                // We want to treat every `vt {u} {v}` as `vt {u} {v} 1.0` for later perspective transforms
+                let texture_extension = (coordinate_type == "vt")
+                    .then_some("1.0".to_string())
+                    .into_iter();
+
                 let points: Vec<f32> = words
                     .take(3)
                     .chain(texture_extension)
@@ -158,7 +171,7 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
                     bail!(err("Incorrect number of vertices"));
                 }
                 destination.push(Vec3A::from_slice(&points));
-            },
+            }
             "f" => {
                 let mut triangle = [Vertex::default(); 3];
                 for vertex in &mut triangle {
@@ -168,7 +181,7 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
                         .split('/')
                         .map(str::parse)
                         .collect::<Result<_, _>>()?;
-                    
+
                     let (position, texture, normal) = match vertex_data[..] {
                         [v, vt, vn] => (vertices[v], texture_coordinates[vt], normals[vn]),
                         [v, vt] => (vertices[v], texture_coordinates[vt], DEFAULT_NORMAL),
@@ -181,14 +194,17 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
                         texture,
                     };
                 }
-                let texture = current_material.as_ref().with_context(|| err("No material provided"))?;
+                let texture = current_material
+                    .as_ref()
+                    .with_context(|| err("No material provided"))?;
                 triangles.push(Triangle::new(triangle, texture));
             }
             unknown_element => bail!("{} \"{unknown_element}\"", err("Unknown element")),
         }
     }
 
-    let textures = material_library.with_context(|| format!("{}: mtllib is undefined", path.display()))?;
+    let textures =
+        material_library.with_context(|| format!("{}: mtllib is undefined", path.display()))?;
 
     Ok(ObjectData {
         triangles,

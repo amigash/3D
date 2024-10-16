@@ -20,7 +20,7 @@ impl Draw {
         }
     }
 
-    // TODO: Re-implement depth buffer 
+    // TODO: Re-implement depth buffer
     fn pixel(&mut self, frame: &mut [u8], x: usize, y: usize, _z: f32, rgba: [u8; 4]) {
         let index = x + y * self.width;
         if let Some(slice) = frame.get_mut(4 * index..4 * index + 4) {
@@ -90,8 +90,11 @@ impl Draw {
 
                 let scaled_texture = texture_coordinates / texture_coordinates.z;
 
-                let texture_x = (scaled_texture.x * texture.width as f32) as usize;
-                let texture_y = (scaled_texture.y * texture.height as f32) as usize;
+                let [texture_x, texture_y] = (scaled_texture
+                    * Vec3A::new(texture.width as f32, texture.height as f32, 1.0))
+                .truncate()
+                .to_array()
+                .map(|float| float as usize);
 
                 let rgba = texture.get_pixel(texture_x, texture_y);
 
