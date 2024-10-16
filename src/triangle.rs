@@ -1,14 +1,14 @@
 use glam::Vec3A;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct Vertex {
     pub position: Vec3A,
-    pub normal: Option<Vec3A>,
-    pub texture: Option<Vec3A>,
+    pub normal: Vec3A,
+    pub texture: Vec3A,
 }
 
 impl Vertex {
-    pub fn new(position: Vec3A, normal: Option<Vec3A>, texture: Option<Vec3A>) -> Self {
+    pub fn new(position: Vec3A, normal: Vec3A, texture: Vec3A) -> Self {
         Self {
             position,
             normal,
@@ -20,21 +20,17 @@ impl Vertex {
 pub struct Triangle {
     pub vertices: [Vertex; 3],
     pub normal: Vec3A,
+    pub texture_name: String,
 }
 
 impl Triangle {
-    pub fn new(a: Vertex, b: Vertex, c: Vertex) -> Self {
+    pub fn new([a, b, c]: [Vertex; 3], texture_name: &(impl ToString + ?Sized)) -> Self {
         Self {
             vertices: [a, b, c],
             normal: (b.position - c.position)
                 .cross(c.position - a.position)
                 .normalize(),
+            texture_name: texture_name.to_string(),
         }
-    }
-}
-
-impl From<[Vertex; 3]> for Triangle {
-    fn from([a, b, c]: [Vertex; 3]) -> Self {
-        Self::new(a, b, c)
     }
 }

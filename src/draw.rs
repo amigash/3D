@@ -1,21 +1,22 @@
-use crate::mesh::load_image_into_pixel_buffer;
+use crate::mesh::Texture;
 use crate::triangle::Triangle;
 use glam::{Vec2, Vec3A};
+use std::collections::HashMap;
 
 pub struct Draw {
     width: usize,
     height: usize,
     depth_buffer: Vec<f32>,
-    texture: Vec<u8>,
+    pub textures: HashMap<String, Texture>,
 }
 
 impl Draw {
-    pub fn new(width: usize, height: usize) -> Self {
+    pub fn new(width: usize, height: usize, textures: HashMap<String, Texture>) -> Self {
         Draw {
             width,
             height,
             depth_buffer: vec![0.0; width * height],
-            texture: load_image_into_pixel_buffer("assets/grass_block/grass_block.png").unwrap(),
+            textures,
         }
     }
 
@@ -56,11 +57,14 @@ impl Draw {
 
     pub fn fill_triangle(&mut self, frame: &mut [u8], triangle: &Triangle) {
         let vertices = triangle.vertices.map(|v| v.position);
-        let textures = triangle.vertices.map(|v| v.texture.unwrap());
+        let textures = triangle.vertices.map(|v| v.texture);
+        let texture_name = triangle.texture_name.as_str();
         let [a, b, c] = vertices.map(Vec3A::truncate);
         let z_coordinates = Vec3A::from_array(vertices.map(|point| point.z));
         let [x_min, x_max, y_min, y_max] = self.bounding_box(&vertices);
         let area = Self::triangle_area(a, b, c);
+
+        let texture = self.textures[texture_name].clone();
 
         for y in y_min..=y_max {
             for x in x_min..=x_max {
@@ -84,13 +88,12 @@ impl Draw {
 
                 let scaled_texture = texture_coordinates / texture_coordinates.z;
 
-                let texture_x = ((scaled_texture.x * 16.0) as usize).clamp(0, 15);
-                let texture_y = ((scaled_texture.y * 48.0) as usize).clamp(0, 47);
-                let index = (texture_x + 16 * texture_y) * 4;
+                let texture_x = (scaled_texture.x * texture.width as f32) as usize;
+                let texture_y = (scaled_texture.y * texture.height as f32) as usize;
 
-                let rgba = &self.texture[index..index + 4];
+                let rgba = texture.get_pixel(texture_x, texture_y);
 
-                self.pixel(frame, x, y, z, rgba.try_into().unwrap());
+                self.pixel(frame, x, y, z, rgba);
             }
         }
     }

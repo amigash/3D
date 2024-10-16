@@ -1,10 +1,19 @@
+#![feature(map_try_insert)]
+
 mod camera;
 mod draw;
 mod mesh;
 mod triangle;
 
-use crate::triangle::Vertex;
-use crate::{camera::Camera, draw::Draw, triangle::Triangle};
+use crate::{
+    mesh::ObjectData,
+    triangle::{
+        Vertex,
+        Triangle
+    },
+    camera::Camera,
+    draw::Draw,
+};
 use glam::{Vec2, Vec3A};
 use pixels::{Pixels, SurfaceTexture};
 use std::{sync::Arc, time::Duration};
@@ -81,21 +90,20 @@ impl App for Application {
         let forward = self.camera.forward();
 
         let transform = |triangle: &Triangle| {
-            Triangle::from(triangle.vertices.map(|vertex| {
-                let projected = view_projection_matrix * vertex.position.extend(1.0);
-                let perspective_corrected_texture = vertex.texture.map(|texture| {
-                    Vec3A::new(
-                        texture.x,
-                        texture.y,
-                        1.0,
-                    ) / projected.w
-                });
-                let perspective_divided = Vec3A::from_vec4(projected / projected.w);
-                let flipped = perspective_divided.with_y(-perspective_divided.y);
-                let centered = flipped + Vec3A::new(1.0, 1.0, 0.0);
-                let position = centered * Vec3A::from((0.5 * size).extend(1.0));
-                Vertex::new(position, vertex.normal, perspective_corrected_texture)
-            }))
+            Triangle::new(
+                triangle.vertices.map(|vertex| {
+                    let projected = view_projection_matrix * vertex.position.extend(1.0);
+                    let perspective_divided = Vec3A::from_vec4(projected / projected.w);
+                    let flipped = perspective_divided.with_y(-perspective_divided.y);
+                    let centered = flipped + Vec3A::new(1.0, 1.0, 0.0);
+                    let position = centered * Vec3A::from((0.5 * size).extend(1.0));
+
+                    let perspective_corrected_texture =
+                        Vec3A::new(vertex.texture.x, vertex.texture.y, 1.0) / projected.w;
+                    Vertex::new(position, vertex.normal, perspective_corrected_texture)
+                }),
+                &triangle.texture_name,
+            )
         };
 
         let is_facing_camera = |triangle: &Triangle| {
@@ -135,7 +143,7 @@ impl App for Application {
                 let (width, height) = (size.width / self.scale, size.height / self.scale);
                 self.pixels.resize_surface(size.width, size.height)?;
                 self.pixels.resize_buffer(width, height)?;
-                self.draw = Draw::new(width as usize, height as usize);
+                self.draw = Draw::new(width as usize, height as usize, self.draw.textures.clone());
                 self.camera.aspect_ratio = width as f32 / height as f32;
                 self.size = Vec2::new(width as f32, height as f32);
             }
@@ -166,12 +174,17 @@ fn main() -> Result<()> {
 
     let [width, height] = [WIDTH / SCALE, HEIGHT / SCALE];
 
+    let ObjectData {
+        triangles: mesh,
+        textures,
+    } = mesh::load_from_obj_file(OBJECT_PATH)?;
+
     let app = Application {
-        mesh: mesh::load_from_obj_file(OBJECT_PATH)?,
+        mesh,
         pixels: Pixels::new(width, height, SurfaceTexture::new(WIDTH, HEIGHT, &window))?,
         scale: SCALE,
         camera: Camera::new(CAMERA_POSITION, CAMERA_ROTATION),
-        draw: Draw::new(width as usize, height as usize),
+        draw: Draw::new(width as usize, height as usize, textures),
         size: Vec2::new(WIDTH as f32, HEIGHT as f32),
     };
 
