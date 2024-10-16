@@ -29,11 +29,28 @@ impl Texture {
             self.pixels[index + 3],
         ]
     }
+
+    pub fn try_from_path(path: impl AsRef<Path>) -> Result<Self> {
+        let image = ImageReader::open(path)?
+            .with_guessed_format()?
+            .decode()?
+            .flipv()
+            .to_rgba8();
+        let texture = Texture {
+            width: image.width() as usize,
+            height: image.height() as usize,
+            pixels: image.into_raw(),
+        };
+        Ok(texture)
+    }
+    
 }
 
 pub fn load_mtl_file(path: impl AsRef<Path>) -> Result<HashMap<String, Texture>> {
+    let path = path.as_ref();
+    
     let mut map = HashMap::new();
-    let file = File::open(path.as_ref())?;
+    let file = File::open(path)?;
     let reader = BufReader::new(file);
     let mut material_name = None;
 
@@ -60,13 +77,8 @@ pub fn load_mtl_file(path: impl AsRef<Path>) -> Result<HashMap<String, Texture>>
                     .take()
                     .with_context(|| "No material name specified")?;
                 let image_string = words.next().with_context(|| "No path specified")?;
-                let partial_image_path: &Path = image_string.as_ref();
-                let image_path = if let Some(parent_directory) = path.as_ref().parent() {
-                    parent_directory.join(partial_image_path)
-                } else {
-                    partial_image_path.to_path_buf()
-                };
-                let image = load_image_into_pixel_buffer(image_path)?;
+                let image_path = path.with_file_name(image_string);
+                let image = Texture::try_from_path(image_path)?;
                 map.try_insert(name, image)
                     .expect("Material texture is already defined");
             }
@@ -74,20 +86,6 @@ pub fn load_mtl_file(path: impl AsRef<Path>) -> Result<HashMap<String, Texture>>
         }
     }
     Ok(map)
-}
-
-pub fn load_image_into_pixel_buffer(path: impl AsRef<Path>) -> Result<Texture> {
-    let image = ImageReader::open(path)?
-        .with_guessed_format()?
-        .decode()?
-        .flipv()
-        .to_rgba8();
-    let texture = Texture {
-        width: image.width() as usize,
-        height: image.height() as usize,
-        pixels: image.into_raw(),
-    };
-    Ok(texture)
 }
 
 pub struct ObjectData {
@@ -128,37 +126,32 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
 
         match command.as_ref() {
             "mtllib" => {
-                if material_library.as_ref().is_some() {
+                if material_library.is_some() {
                     bail!(err(
                         "Referencing multiple .mtl files is not currently supported"
                     ));
                 }
                 let library_string = words.next().with_context(|| err("No path provided"))?;
-                let partial_library_path: &Path = library_string.as_ref();
-                let library_path = if let Some(parent_directory) = path.parent() {
-                    parent_directory.join(partial_library_path)
-                } else {
-                    partial_library_path.to_path_buf()
-                };
+                let library_path = path.with_file_name(library_string);
                 material_library = Some(load_mtl_file(library_path)?);
             }
             "usemtl" => {
-                if material_library.as_ref().is_none() {
+                if material_library.is_none() {
                     bail!(err("mttlib is undefined"));
                 }
                 let material_name = words.next().with_context(|| err("No path provided"))?;
                 current_material = Some(material_name);
             }
-            coordinate_type @ ("v" | "vn" | "vt") => {
-                let destination = match coordinate_type {
+            "v" | "vn" | "vt" => {
+                let destination = match command.as_ref() {
                     "v" => &mut vertices,
                     "vn" => &mut normals,
                     "vt" => &mut texture_coordinates,
-                    _ => unreachable!("Match arms should reflect coordinate_type"),
+                    _ => unreachable!("Match arms should reflect possible commands"),
                 };
 
                 // We want to treat every `vt {u} {v}` as `vt {u} {v} 1.0` for later perspective transforms
-                let texture_extension = (coordinate_type == "vt")
+                let texture_extension = (command == "vt")
                     .then_some("1.0".to_string())
                     .into_iter();
 
