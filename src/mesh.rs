@@ -22,12 +22,7 @@ pub struct Texture {
 impl Texture {
     pub fn get_pixel(&self, x: usize, y: usize) -> [u8; 4] {
         let index = (x.min(self.width - 1) + self.width * y.min(self.height - 1)) * 4;
-        [
-            self.pixels[index],
-            self.pixels[index + 1],
-            self.pixels[index + 2],
-            self.pixels[index + 3],
-        ]
+        self.pixels[index..index + 4].try_into().unwrap()
     }
 
     pub fn try_from_path(path: impl AsRef<Path>) -> Result<Self> {
@@ -79,10 +74,9 @@ pub fn load_mtl_file(path: impl AsRef<Path>) -> Result<HashMap<String, Texture>>
                 let image_string = words.next().with_context(|| "No path specified")?;
                 let image_path = path.with_file_name(image_string);
                 let image = Texture::try_from_path(image_path)?;
-                map.try_insert(name, image)
-                    .expect("Material texture is already defined");
+                map.insert(name, image);
             }
-            _ => bail!("Only newmtl and map_Kd are currently supported"),
+            _ => ()
         }
     }
     Ok(map)
@@ -175,7 +169,7 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
                         .map(str::parse)
                         .collect::<Result<_, _>>()?;
 
-                    let (position, texture, normal) = match vertex_data[..] {
+                    let (position, texture, normal) = match *vertex_data.as_slice() {
                         [v, vt, vn] => (vertices[v], texture_coordinates[vt], normals[vn]),
                         [v, vt] => (vertices[v], texture_coordinates[vt], DEFAULT_NORMAL),
                         [v] => (vertices[v], DEFAULT_TEXTURE, DEFAULT_NORMAL),
