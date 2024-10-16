@@ -9,15 +9,13 @@ edition = "2021"
 pixels = "0.14.0"
 win-loop = { version = "0.7.0", features = ["rwh_05"] }
 glam = { version = "0.29.0", features = ["fast-math"] }
+image = "0.25.2"
 
 [profile.release]
 opt-level = 3
-codegen-units = 1
-lto = true
 debug = false
 rpath = false
 panic = "abort"
-incremental = false
 overflow-checks = false
 strip = "debuginfo"
 

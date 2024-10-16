@@ -1,26 +1,35 @@
 use glam::Vec3A;
 
-type Vertex = Vec3A;
+#[derive(Copy, Clone)]
+pub struct Vertex {
+    pub position: Vec3A,
+    pub normal: Option<Vec3A>,
+    pub texture: Option<Vec3A>,
+}
+
+impl Vertex {
+    pub fn new(position: Vec3A, normal: Option<Vec3A>, texture: Option<Vec3A>) -> Self {
+        Self {
+            position,
+            normal,
+            texture,
+        }
+    }
+}
 
 pub struct Triangle {
-    vertices: [Vertex; 3],
-    normal: Vertex,
+    pub vertices: [Vertex; 3],
+    pub normal: Vec3A,
 }
 
 impl Triangle {
     pub fn new(a: Vertex, b: Vertex, c: Vertex) -> Self {
         Self {
             vertices: [a, b, c],
-            normal: (b - c).cross(c - a).normalize(),
+            normal: (b.position - c.position)
+                .cross(c.position - a.position)
+                .normalize(),
         }
-    }
-
-    pub fn vertices(&self) -> [Vertex; 3] {
-        self.vertices
-    }
-
-    pub fn normal(&self) -> Vertex {
-        self.normal
     }
 }
 

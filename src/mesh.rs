@@ -1,73 +1,93 @@
-use crate::triangle::Triangle;
-use glam::Vec3A;
+use crate::triangle::{Triangle, Vertex};
+use glam::{Vec2, Vec3A};
+use image::{ImageReader};
 use std::{
     fs::File,
-    io::{self, BufRead, BufReader, Error, ErrorKind::InvalidData},
+    io::{BufRead, BufReader},
+    path::Path,
 };
+use win_loop::anyhow::Result;
 
-pub fn load_from_obj_file(file: File) -> io::Result<Vec<Triangle>> {
-    let reader = BufReader::new(file);
+
+pub fn load_image_into_pixel_buffer(path: impl AsRef<Path>) -> Result<Vec<u8>> {
+    Ok(ImageReader::open(path)?
+        .with_guessed_format()?
+        .decode()?
+        .flipv()
+        .to_rgba8()
+        .into_raw())
+}
+
+pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<Vec<Triangle>> {
+    let reader = BufReader::new(File::open(path)?);
     let mut mesh = vec![];
-    let mut vertices = vec![];
 
-    for (line_number, line) in reader.lines().enumerate() {
+    let mut vertices = vec![];
+    let mut texture_coordinates = vec![];
+    let mut normals = vec![];
+
+    for line in reader.lines() {
         let line = line?;
         let mut words = line.split_whitespace();
+        let Some(first) = words.next() else { continue };
 
-        match words.next() {
-            Some("v") => {
+        match first {
+            "vn" => {
                 let mut vertex = Vec3A::ZERO;
                 for coordinate in vertex.as_mut() {
                     *coordinate = words
                         .next()
-                        .ok_or_else(|| {
-                            Error::new(
-                                InvalidData,
-                                format!("Missing vertex coordinate on line {}", line_number + 1),
-                            )
-                        })?
-                        .parse()
-                        .map_err(|_| {
-                            Error::new(
-                                InvalidData,
-                                format!(
-                                    "Failed to parse vertex coordinate on line {}",
-                                    line_number + 1
-                                ),
-                            )
-                        })?;
+                        .expect("Expected another vertex")
+                        .parse()?;
+                }
+                normals.push(vertex);
+            }
+            "vt" => {
+                let mut vertex = Vec2::ZERO;
+                for coordinate in vertex.as_mut() {
+                    *coordinate = words
+                        .next()
+                        .expect("Expected another vertex")
+                        .parse()?;
+                }
+                texture_coordinates.push(vertex.extend(1.0).into());
+            }
+            "v" => {
+                let mut vertex = Vec3A::ZERO;
+                for coordinate in vertex.as_mut() {
+                    *coordinate = words
+                        .next()
+                        .expect("Expected another vertex")
+                        .parse()?;
                 }
                 vertices.push(vertex);
             }
-            Some("f") => {
-                let mut points = [Vec3A::ZERO; 3];
-                for point in &mut points {
-                    let index = words
-                        .next()
-                        .ok_or_else(|| {
-                            Error::new(
-                                InvalidData,
-                                format!("Missing face index on line {}", line_number + 1),
-                            )
-                        })?
+            "f" => {
+                let mut triangle = vec![];
+                for word in words {
+                    let vertex_data = &word
                         .split('/')
-                        .next()
-                        .unwrap()
-                        .parse::<usize>()
-                        .map_err(|_| {
-                            Error::new(
-                                InvalidData,
-                                format!("Failed to parse face index on line {}", line_number + 1),
-                            )
-                        })?;
-                    *point = *vertices.get(index).ok_or_else(|| {
-                        Error::new(
-                            InvalidData,
-                            format!("Vertex index out of bounds on line {}", line_number + 1),
-                        )
-                    })?;
+                        .map(|s| s.parse::<usize>().unwrap_or(0))
+                        .collect::<Vec<_>>()[..];
+                    let (position, texture, normal) = match vertex_data {
+                        &[v, vt, vn] => (
+                            vertices[v - 1],
+                            (vt != 0).then(|| texture_coordinates[vt - 1]),
+                            Some(normals[vn - 1]),
+                        ),
+                        [v, vt] => (vertices[v - 1], Some(texture_coordinates[vt - 1]), None),
+                        [v] => (vertices[v - 1], None, None),
+                        _ => panic!(),
+                    };
+                    triangle.push(Vertex {
+                        position,
+                        normal,
+                        texture,
+                    });
                 }
-                mesh.push(Triangle::from(points));
+                let [a, b, c] = triangle[0..=2] else { panic!() };
+
+                mesh.push(Triangle::new(a, b, c));
             }
             _ => (),
         }
