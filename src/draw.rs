@@ -20,13 +20,15 @@ impl Draw {
         }
     }
 
-    fn pixel(&mut self, frame: &mut [u8], x: usize, y: usize, z: f32, rgba: [u8; 4]) {
+    // TODO: Re-implement depth buffer 
+    fn pixel(&mut self, frame: &mut [u8], x: usize, y: usize, _z: f32, rgba: [u8; 4]) {
         let index = x + y * self.width;
         if let Some(slice) = frame.get_mut(4 * index..4 * index + 4) {
             slice.copy_from_slice(&rgba);
         }
     }
 
+    // TODO: More efficient method than bounding box
     fn bounding_box(&self, vertices: &[Vec3A; 3]) -> [usize; 4] {
         vertices
             .iter()
