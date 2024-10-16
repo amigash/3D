@@ -6,13 +6,10 @@ mod mesh;
 mod triangle;
 
 use crate::{
-    mesh::ObjectData,
-    triangle::{
-        Vertex,
-        Triangle
-    },
     camera::Camera,
     draw::Draw,
+    mesh::ObjectData,
+    triangle::{Triangle, Vertex},
 };
 use glam::{Vec2, Vec3A};
 use pixels::{Pixels, SurfaceTexture};
