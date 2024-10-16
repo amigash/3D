@@ -5,8 +5,8 @@ use win_loop::winit::keyboard::KeyCode;
 const MIN_PITCH: f32 = 0.99 * -FRAC_PI_2;
 const MAX_PITCH: f32 = 0.99 * FRAC_PI_2;
 const Z_NEAR: f32 = 0.1;
-const Z_FAR: f32 = 500.0;
-const SPEED: f32 = 0.05;
+const Z_FAR: f32 = 20_000.0;
+const SPEED: f32 = 5.0;
 const SENSITIVITY: f32 = 0.003;
 const FOV: f32 = FRAC_PI_2;
 
@@ -15,6 +15,21 @@ pub struct Camera {
     rotation: Vec2,
     pub aspect_ratio: f32,
 }
+
+pub fn perspective_rh_reversed(fov_y_radians: f32, aspect_ratio: f32, z_near: f32, z_far: f32) -> Mat4 {
+    let (sin_fov, cos_fov) = f32::sin_cos(0.5 * fov_y_radians);
+    let h = cos_fov / sin_fov;
+    let w = h / aspect_ratio;
+    // Reverse depth formula: near maps to 1, far maps to 0
+    let r = z_near / (z_near - z_far);
+    Mat4::from_cols(
+        Vec4::new(w, 0.0, 0.0, 0.0),
+        Vec4::new(0.0, h, 0.0, 0.0),
+        Vec4::new(0.0, 0.0, r, -1.0),
+        Vec4::new(0.0, 0.0, r * z_far, 0.0),
+    )
+}
+
 
 impl Camera {
     pub fn new(position: Vec3A, rotation: Vec2) -> Self {
@@ -26,7 +41,7 @@ impl Camera {
     }
 
     fn projection_matrix(&self) -> Mat4 {
-        Mat4::perspective_rh(FOV, self.aspect_ratio, Z_NEAR, Z_FAR)
+        perspective_rh_reversed(FOV, self.aspect_ratio, Z_NEAR, Z_FAR)
     }
 
     fn rotation_matrix(&self) -> Mat4 {

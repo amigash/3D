@@ -1,4 +1,4 @@
-#![feature(map_try_insert)]
+#![feature(let_chains)]
 
 mod camera;
 mod draw;
@@ -31,7 +31,7 @@ const OBJECT_PATH: &str = "assets/coconut/Wii_Coconut_Mall.obj";
 const CLEAR_COLOR: [u8; 4] = [110, 177, 255, 255];
 const WIDTH: u32 = 2560;
 const HEIGHT: u32 = 1600;
-const SCALE: u32 = 2;
+const SCALE: u32 = 4;
 const TARGET_FRAME_TIME_SECONDS: f32 = 1.0 / 144.0;
 const MAX_FRAME_TIME_SECONDS: f32 = 0.1;
 const CAMERA_POSITION: Vec3A = Vec3A::new(0.0, 2.5, 5.0);
@@ -46,6 +46,7 @@ struct Application {
     size: Vec2,
 }
 
+
 impl Application {
     fn clear(&mut self) {
         for pixels in self.pixels.frame_mut().chunks_exact_mut(4) {
@@ -57,12 +58,8 @@ impl Application {
 impl App for Application {
     fn update(&mut self, ctx: &mut Context) -> Result<()> {
         // Keeps the mesh sorted so that closer triangles are drawn first, resulting in fewer draw calls.
-        self.mesh.sort_unstable_by(|a, b| {
-            a.vertices[0]
-                .position
-                .z
-                .total_cmp(&b.vertices[0].position.z)
-        });
+        let position = self.camera.position;
+        self.mesh.sort_unstable_by_key(|triangle| triangle.centroid.distance(position) as i32);
 
         if ctx.input.is_logical_key_pressed(NamedKey::Escape) {
             ctx.exit();

@@ -21,6 +21,7 @@ pub struct Triangle {
     pub vertices: [Vertex; 3],
     pub normal: Vec3A,
     pub texture_name: String,
+    pub centroid: Vec3A,
 }
 
 impl Triangle {
@@ -31,6 +32,7 @@ impl Triangle {
                 .cross(c.position - a.position)
                 .normalize(),
             texture_name: texture_name.to_string(),
+            centroid: (a.position + b.position + c.position) / 3.0
         }
     }
 }

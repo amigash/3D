@@ -22,12 +22,18 @@ impl Draw {
         }
     }
 
-    // TODO: Re-implement depth buffer
-    fn pixel(&mut self, frame: &mut [u8], x: usize, y: usize, _z: f32, rgba: [u8; 4]) {
+    fn pixel(&mut self, frame: &mut [u8], x: usize, y: usize, z: f32, rgba: [u8; 4]) {
         let index = x + y * self.width;
+        let Some(depth) = self.depth_buffer.get_mut(index) else { return; };
+        if z < *depth {
+            return;
+        } 
+        *depth = z;
+        
         if let Some(slice) = frame.get_mut(4 * index..4 * index + 4) {
             slice.copy_from_slice(&rgba);
         }
+        self.depth_buffer[index] = z;
     }
 
     // TODO: More efficient method than bounding box
@@ -100,7 +106,7 @@ impl Draw {
 
                 let rgba = texture.get_pixel(texture_x, texture_y);
 
-                self.pixel(frame, x, y, z, rgba);
+                self.pixel(frame, x, y, -z, rgba);
             }
         }
     }
