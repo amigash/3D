@@ -1,6 +1,6 @@
 use glam::Vec3A;
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Debug)]
 pub struct Vertex {
     pub position: Vec3A,
     pub normal: Vec3A,
