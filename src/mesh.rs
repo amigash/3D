@@ -51,6 +51,9 @@ pub fn load_mtl_file(path: impl AsRef<Path>) -> Result<HashMap<String, Texture>>
 
     for line in reader.lines() {
         let line = line?;
+        if let Some('#') = line.chars().next() {
+            continue // skip comments
+        }
         let mut words = line.split_whitespace();
         let Some(command) = words.next() else {
             continue;
@@ -58,9 +61,6 @@ pub fn load_mtl_file(path: impl AsRef<Path>) -> Result<HashMap<String, Texture>>
 
         match command {
             "newmtl" => {
-                if material_name.is_some() {
-                    bail!("Material name defined without being used")
-                }
                 let name = words
                     .next()
                     .with_context(|| "No material specified")?
@@ -111,6 +111,11 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
         };
 
         let line = line?;
+
+        if let Some('#') = line.chars().next() {
+            continue // skip comments
+        }
+        
         let mut words = line
             .split_whitespace()
             .map(std::string::ToString::to_string);
@@ -186,7 +191,7 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
                     .with_context(|| err("No material provided"))?;
                 triangles.push(Triangle::new(triangle, texture));
             }
-            unknown_element => bail!("{} \"{unknown_element}\"", err("Unknown element")),
+            _ => (),
         }
     }
 

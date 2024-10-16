@@ -27,7 +27,7 @@ use win_loop::{
     App, Context, InputState,
 };
 
-const OBJECT_PATH: &str = "assets/grass_block/grass_block.obj";
+const OBJECT_PATH: &str = "assets/coconut/Wii_Coconut_Mall.obj";
 const CLEAR_COLOR: [u8; 4] = [110, 177, 255, 255];
 const WIDTH: u32 = 2560;
 const HEIGHT: u32 = 1600;
