@@ -1,5 +1,7 @@
-use crate::mesh::Texture;
-use crate::triangle::Triangle;
+use crate::{
+    mesh::Texture,
+    triangle::Triangle
+};
 use glam::{Vec2, Vec3A};
 use std::collections::HashMap;
 
