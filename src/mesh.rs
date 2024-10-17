@@ -105,8 +105,8 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
         let err = |message: &str| {
             format!(
                 "In \"{}\" on line {}: {message}",
+                path.display(),
                 line_number + 1,
-                path.display()
             )
         };
 
