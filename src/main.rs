@@ -1,17 +1,18 @@
-#![feature(let_chains)]
+#![feature(iter_partition_in_place)]
 
 mod camera;
 mod draw;
 mod mesh;
-mod triangle;
+mod geometry;
 
+use crate::geometry::{ProjectedTriangle, ProjectedVertex};
 use crate::{
     camera::Camera,
     draw::Draw,
     mesh::ObjectData,
-    triangle::{Triangle, Vertex},
+    geometry::{Triangle, Vertex},
 };
-use glam::{Vec2, Vec3A};
+use glam::{Vec2, Vec3A, Vec4};
 use pixels::{Pixels, SurfaceTexture};
 use std::{sync::Arc, time::Duration};
 use win_loop::{
@@ -37,6 +38,58 @@ const MAX_FRAME_TIME_SECONDS: f32 = 0.1;
 const CAMERA_POSITION: Vec3A = Vec3A::new(0.0, 2.5, 5.0);
 const CAMERA_ROTATION: Vec2 = Vec2::ZERO;
 
+const CLIPPING_PLANES: [Vec4; 5] = [
+    Vec4::new(0.0, 0.0, 1.0, 1.0),  // Near
+    Vec4::new(1.0, 0.0, 0.0, 1.0),  // Left
+    Vec4::new(-1.0, 0.0, 0.0, 1.0), // Right
+    Vec4::new(0.0, -1.0, 0.0, 1.0), // Top
+    Vec4::new(0.0, 1.0, 0.0, 1.0),  // Bottom
+];
+
+fn intersection(plane: Vec4, a: ProjectedVertex, b: ProjectedVertex) -> ProjectedVertex {
+    let s = plane.dot(a.position) / (plane.dot(a.position) - plane.dot(b.position));
+    a.lerp(b, s)
+}
+
+fn clip(triangles: &mut Vec<ProjectedTriangle>) {
+    for plane in CLIPPING_PLANES {
+        let mut i = 0;
+        let mut length = triangles.len();
+
+        while i < length {
+            let mut triangle = triangles[i].clone();
+            let inside = triangle
+                .vertices
+                .iter_mut()
+                .partition_in_place(|point| point.position.dot(plane).is_sign_positive());
+            match inside {
+                1 | 2 => {
+                    let [a, b, c] = [4, 5, 6].map(|j| triangle.vertices[(j - inside) % 3]);
+                    let [ab, ac] = [b, c].map(|point| intersection(plane, a, point));
+
+                    if inside == 1 {
+                        triangles[i].vertices = [ac, a, ab];
+                        // triangles[i].texture_name = "cyan".to_string();
+                    } else {
+                        triangles[i].vertices = [ac, b, ab];
+                        // triangles[i].texture_name = "yellow".to_string();
+                        triangle.vertices = [ac, b, c];
+                        // triangle.texture_name = "magenta".to_string();
+                        triangles.insert(i, triangle);
+                        length += 1;
+                    }
+                    i += 1;
+                }
+                3 => i += 1,
+                _ => {
+                    triangles.swap_remove(i);
+                    length -= 1;
+                }
+            }
+        }
+    }
+}
+
 struct Application {
     mesh: Vec<Triangle>,
     pixels: Pixels,
@@ -46,9 +99,8 @@ struct Application {
     size: Vec2,
 }
 
-
 impl Application {
-    fn clear(&mut self) {
+    fn clear_screen(&mut self) {
         for pixels in self.pixels.frame_mut().chunks_exact_mut(4) {
             pixels.copy_from_slice(&CLEAR_COLOR);
         }
@@ -59,7 +111,8 @@ impl App for Application {
     fn update(&mut self, ctx: &mut Context) -> Result<()> {
         // Keeps the mesh sorted so that closer triangles are drawn first, resulting in fewer draw calls.
         let position = self.camera.position;
-        self.mesh.sort_unstable_by_key(|triangle| triangle.centroid.distance(position) as i32);
+        self.mesh
+            .sort_unstable_by_key(|triangle| position.distance(triangle.centroid) as i32);
 
         if ctx.input.is_logical_key_pressed(NamedKey::Escape) {
             ctx.exit();
@@ -81,47 +134,56 @@ impl App for Application {
         let size = self.size;
         let camera_position = self.camera.position;
         let view_projection_matrix = self.camera.view_projection_matrix();
-        let forward = self.camera.forward();
 
-        let transform = |triangle: &Triangle| {
-            Triangle::new(
-                triangle.vertices.map(|vertex| {
-                    let projected = view_projection_matrix * vertex.position.extend(1.0);
-                    let perspective_divided = Vec3A::from_vec4(projected / projected.w);
-                    let flipped = perspective_divided.with_y(-perspective_divided.y);
-                    let centered = flipped + Vec3A::new(1.0, 1.0, 0.0);
-                    let position = centered * Vec3A::from((0.5 * size).extend(1.0));
-
-                    let perspective_corrected_texture =
-                        Vec3A::new(vertex.texture.x, vertex.texture.y, 1.0) / projected.w;
-                    Vertex::new(position, vertex.normal, perspective_corrected_texture)
-                }),
-                &triangle.texture_name,
-            )
+        let project = |triangle: &Triangle| ProjectedTriangle {
+            vertices: triangle.vertices.map(|vertex| ProjectedVertex {
+                position: view_projection_matrix * vertex.position.extend(1.0),
+                normal: vertex.normal,
+                texture: vertex.texture,
+            }),
+            normal: triangle.normal,
+            texture_name: triangle.texture_name.clone(),
+            centroid: triangle.centroid,
         };
 
-        let is_facing_camera = |triangle: &Triangle| {
+        let divide_and_scale = |triangle: ProjectedTriangle| Triangle {
+            vertices: triangle.vertices.map(|vertex| {
+                let perspective_divided = Vec3A::from_vec4(vertex.position / vertex.position.w);
+                let flipped = perspective_divided.with_y(-perspective_divided.y);
+                let centered = flipped + Vec3A::new(1.0, 1.0, 0.0);
+                let position = centered * Vec3A::from((0.5 * size).extend(1.0));
+                let texture =
+                    Vec3A::new(vertex.texture.x, vertex.texture.y, 1.0) / vertex.position.w;
+                Vertex {
+                    position,
+                    normal: vertex.normal,
+                    texture,
+                }
+            }),
+            normal: triangle.normal,
+            texture_name: triangle.texture_name.clone(),
+            centroid: triangle.centroid,
+        };
+
+        let is_facing_camera = |triangle: &&Triangle| {
             triangle
                 .normal
-                .dot(camera_position - triangle.vertices[0].position)
+                .dot(camera_position - triangle.centroid)
                 .is_sign_positive()
         };
 
-        let is_ahead_of_camera = |triangle: &Triangle| {
-            triangle.vertices.iter().all(|vertex| {
-                forward
-                    .dot(vertex.position - camera_position)
-                    .is_sign_positive()
-            })
-        };
-
-        let is_visible =
-            |triangle: &&Triangle| is_facing_camera(triangle) && is_ahead_of_camera(triangle);
-
-        self.clear();
-        for triangle in self.mesh.iter().filter(is_visible).map(transform) {
+        self.clear_screen();
+        let mut projected: Vec<_> = self
+            .mesh
+            .iter()
+            .filter(is_facing_camera)
+            .map(project)
+            .collect();
+        clip(&mut projected);
+        for triangle in projected.into_iter().map(divide_and_scale) {
             self.draw.fill_triangle(self.pixels.frame_mut(), &triangle);
         }
+
         self.draw.clear_depth_buffer();
         self.pixels.render()?;
 

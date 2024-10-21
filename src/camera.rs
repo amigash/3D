@@ -16,7 +16,12 @@ pub struct Camera {
     pub aspect_ratio: f32,
 }
 
-pub fn perspective_rh_reversed(fov_y_radians: f32, aspect_ratio: f32, z_near: f32, z_far: f32) -> Mat4 {
+pub fn perspective_rh_reversed(
+    fov_y_radians: f32,
+    aspect_ratio: f32,
+    z_near: f32,
+    z_far: f32,
+) -> Mat4 {
     let (sin_fov, cos_fov) = f32::sin_cos(0.5 * fov_y_radians);
     let h = cos_fov / sin_fov;
     let w = h / aspect_ratio;
@@ -29,7 +34,6 @@ pub fn perspective_rh_reversed(fov_y_radians: f32, aspect_ratio: f32, z_near: f3
         Vec4::new(0.0, 0.0, r * z_far, 0.0),
     )
 }
-
 
 impl Camera {
     pub fn new(position: Vec3A, rotation: Vec2) -> Self {
@@ -66,10 +70,6 @@ impl Camera {
 
     pub fn view_projection_matrix(&self) -> Mat4 {
         self.projection_matrix() * self.view_matrix()
-    }
-
-    pub fn forward(&self) -> Vec3A {
-        -Vec3A::from_vec4(self.view_matrix().inverse().col(2))
     }
 
     pub fn update(&mut self, keys: &[KeyCode]) {

@@ -1,4 +1,4 @@
-use crate::triangle::{Triangle, Vertex};
+use crate::geometry::{Triangle, Vertex};
 use glam::Vec3A;
 use image::ImageReader;
 use std::{
@@ -20,6 +20,14 @@ pub struct Texture {
 }
 
 impl Texture {
+    fn from_color(r: u8, g: u8, b: u8) -> Self {
+        Self {
+            width: 1,
+            height: 1,
+            pixels: vec![r, g, b, 255],
+        }
+    }
+
     pub fn get_pixel(&self, x: usize, y: usize) -> [u8; 4] {
         let index = (x.min(self.width - 1) + self.width * y.min(self.height - 1)) * 4;
         self.pixels[index..index + 4].try_into().unwrap()
@@ -38,13 +46,17 @@ impl Texture {
         };
         Ok(texture)
     }
-    
 }
 
-pub fn load_mtl_file(path: impl AsRef<Path>) -> Result<HashMap<String, Texture>> {
+impl Default for Texture {
+    fn default() -> Self {
+        Self::from_color(255, 255, 255)
+    }
+}
+
+pub fn load_mtl_file(path: impl AsRef<Path>, map: &mut HashMap<String, Texture>) -> Result<()> {
     let path = path.as_ref();
-    
-    let mut map = HashMap::new();
+
     let file = File::open(path)?;
     let reader = BufReader::new(file);
     let mut material_name = None;
@@ -52,7 +64,7 @@ pub fn load_mtl_file(path: impl AsRef<Path>) -> Result<HashMap<String, Texture>>
     for line in reader.lines() {
         let line = line?;
         if let Some('#') = line.chars().next() {
-            continue // skip comments
+            continue; // skip comments
         }
         let mut words = line.split_whitespace();
         let Some(command) = words.next() else {
@@ -76,10 +88,10 @@ pub fn load_mtl_file(path: impl AsRef<Path>) -> Result<HashMap<String, Texture>>
                 let image = Texture::try_from_path(image_path)?;
                 map.insert(name, image);
             }
-            _ => ()
+            _ => (),
         }
     }
-    Ok(map)
+    Ok(())
 }
 
 pub struct ObjectData {
@@ -97,7 +109,13 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
 
     let mut triangles = vec![];
 
-    let mut material_library = None;
+    let mut material_library = HashMap::new();
+
+    // Some default materials for debugging
+    material_library.insert("cyan".to_string(), Texture::from_color(0, 255, 255));
+    material_library.insert("magenta".to_string(), Texture::from_color(255, 0, 255));
+    material_library.insert("yellow".to_string(), Texture::from_color(255, 255, 0));
+
     let mut current_material = None;
 
     let reader = BufReader::new(File::open(path)?);
@@ -113,9 +131,9 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
         let line = line?;
 
         if let Some('#') = line.chars().next() {
-            continue // skip comments
+            continue; // skip comments
         }
-        
+
         let mut words = line
             .split_whitespace()
             .map(std::string::ToString::to_string);
@@ -125,20 +143,14 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
 
         match command.as_ref() {
             "mtllib" => {
-                if material_library.is_some() {
-                    bail!(err(
-                        "Referencing multiple .mtl files is not currently supported"
-                    ));
-                }
                 let library_string = words.next().with_context(|| err("No path provided"))?;
                 let library_path = path.with_file_name(library_string);
-                material_library = Some(load_mtl_file(library_path)?);
+                load_mtl_file(library_path, &mut material_library)?;
             }
             "usemtl" => {
-                if material_library.is_none() {
-                    bail!(err("mttlib is undefined"));
-                }
-                let material_name = words.next().with_context(|| err("No path provided"))?;
+                let material_name = words
+                    .next()
+                    .with_context(|| err("No material name provided"))?;
                 current_material = Some(material_name);
             }
             "v" | "vn" | "vt" => {
@@ -150,9 +162,7 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
                 };
 
                 // We want to treat every `vt {u} {v}` as `vt {u} {v} 1.0` for later perspective transforms
-                let texture_extension = (command == "vt")
-                    .then_some("1.0".to_string())
-                    .into_iter();
+                let texture_extension = (command == "vt").then_some("1.0".to_string()).into_iter();
 
                 let points: Vec<f32> = words
                     .take(3)
@@ -186,17 +196,14 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
                         texture,
                     };
                 }
-                let texture = current_material
-                    .as_ref()
-                    .with_context(|| err("No material provided"))?;
-                triangles.push(Triangle::new(triangle, texture));
+                let texture = current_material.clone().unwrap_or_default();
+                triangles.push(Triangle::new(triangle, texture.as_str()));
             }
             _ => (),
         }
     }
 
-    let textures =
-        material_library.with_context(|| format!("{}: mtllib is undefined", path.display()))?;
+    let textures = material_library;
 
     Ok(ObjectData {
         triangles,

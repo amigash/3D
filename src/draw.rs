@@ -1,7 +1,4 @@
-use crate::{
-    mesh::Texture,
-    triangle::Triangle
-};
+use crate::{mesh::Texture, geometry::Triangle};
 use glam::{Vec2, Vec3A};
 use std::collections::HashMap;
 
@@ -24,12 +21,14 @@ impl Draw {
 
     fn pixel(&mut self, frame: &mut [u8], x: usize, y: usize, z: f32, rgba: [u8; 4]) {
         let index = x + y * self.width;
-        let Some(depth) = self.depth_buffer.get_mut(index) else { return; };
+        let Some(depth) = self.depth_buffer.get_mut(index) else {
+            return;
+        };
         if z < *depth {
             return;
-        } 
+        }
         *depth = z;
-        
+
         if let Some(slice) = frame.get_mut(4 * index..4 * index + 4) {
             slice.copy_from_slice(&rgba);
         }
@@ -74,7 +73,7 @@ impl Draw {
         let [x_min, x_max, y_min, y_max] = self.bounding_box(&vertices);
         let area = Self::triangle_area(a, b, c);
 
-        let texture = self.textures[texture_name].clone();
+        let texture = self.textures.get(texture_name).cloned().unwrap_or_default();
 
         for y in y_min..=y_max {
             for x in x_min..=x_max {
@@ -83,7 +82,7 @@ impl Draw {
                 let w_b = Self::triangle_area(c, a, point);
                 let w_c = Self::triangle_area(a, b, point);
 
-                if w_a < 0.0 || w_b < 0.0 || w_c < 0.0 {
+                if !((w_a < 0.0) == (w_b < 0.0) && (w_b < 0.0) == (w_c < 0.0)) {
                     continue;
                 }
 
