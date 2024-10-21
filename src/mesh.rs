@@ -181,6 +181,7 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
                         .next()
                         .with_context(|| err("Expected another vertex"))?
                         .split('/')
+                        .filter(|s| !s.is_empty())
                         .map(str::parse)
                         .collect::<Result<_, _>>()?;
 

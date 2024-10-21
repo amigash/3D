@@ -95,7 +95,7 @@ impl Draw {
                     .map(|(a, b)| a * b)
                     .sum::<Vec3A>();
 
-                let scaled_texture = texture_coordinates / texture_coordinates.z;
+                let scaled_texture = (texture_coordinates / texture_coordinates.z) % 1.0;
 
                 let [texture_x, texture_y] = (scaled_texture
                     * Vec3A::new(texture.width as f32, texture.height as f32, 1.0))
