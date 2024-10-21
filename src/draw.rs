@@ -82,7 +82,7 @@ impl Draw {
                 let w_b = Self::triangle_area(c, a, point);
                 let w_c = Self::triangle_area(a, b, point);
 
-                if !((w_a < 0.0) == (w_b < 0.0) && (w_b < 0.0) == (w_c < 0.0)) {
+                if (w_a < 0.0) != (w_b < 0.0) || (w_b < 0.0) != (w_c < 0.0) {
                     continue;
                 }
 
