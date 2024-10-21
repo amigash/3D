@@ -1,5 +1,5 @@
 use crate::geometry::{Triangle, Vertex};
-use glam::Vec3A;
+use glam::{Vec2, Vec3A};
 use image::ImageReader;
 use std::{
     collections::HashMap,
@@ -9,7 +9,7 @@ use std::{
 };
 use win_loop::anyhow::{bail, Context, Result};
 
-const DEFAULT_NORMAL: Vec3A = Vec3A::ZERO;
+const DEFAULT_NORMAL: Vec3A = Vec3A::Y;
 const DEFAULT_TEXTURE: Vec3A = Vec3A::ZERO;
 
 #[derive(Debug, Clone)]
@@ -108,13 +108,15 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
     let mut normals = vec![Vec3A::default()];
 
     let mut triangles = vec![];
-
-    let mut material_library = HashMap::new();
+    let mut textures = HashMap::new();
+    let mut length = Vec2::ZERO;
+    let mut width = Vec2::ZERO;
+    let mut height = Vec2::ZERO;
 
     // Some default materials for debugging
-    material_library.insert("cyan".to_string(), Texture::from_color(0, 255, 255));
-    material_library.insert("magenta".to_string(), Texture::from_color(255, 0, 255));
-    material_library.insert("yellow".to_string(), Texture::from_color(255, 255, 0));
+    textures.insert("cyan".to_string(), Texture::from_color(0, 255, 255));
+    textures.insert("magenta".to_string(), Texture::from_color(255, 0, 255));
+    textures.insert("yellow".to_string(), Texture::from_color(255, 255, 0));
 
     let mut current_material = None;
 
@@ -145,7 +147,7 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
             "mtllib" => {
                 let library_string = words.next().with_context(|| err("No path provided"))?;
                 let library_path = path.with_file_name(library_string);
-                load_mtl_file(library_path, &mut material_library)?;
+                load_mtl_file(library_path, &mut textures)?;
             }
             "usemtl" => {
                 let material_name = words
@@ -191,6 +193,16 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
                         [v] => (vertices[v], DEFAULT_TEXTURE, DEFAULT_NORMAL),
                         _ => bail!(err("Invalid number of face arguments")),
                     };
+
+                    length.x = length.x.min(position.x);
+                    length.y = length.y.max(position.x);
+
+                    width.x = width.x.min(position.z);
+                    width.y = width.y.max(position.z);
+
+                    height.x = height.x.min(position.y);
+                    height.y = height.y.max(position.y);
+
                     *vertex = Vertex {
                         position,
                         normal,
@@ -203,8 +215,6 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
             _ => (),
         }
     }
-
-    let textures = material_library;
 
     Ok(ObjectData {
         triangles,

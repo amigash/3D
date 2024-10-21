@@ -1,6 +1,14 @@
-use crate::{mesh::Texture, geometry::Triangle};
-use glam::{Vec2, Vec3A};
+use crate::{geometry::Triangle, mesh::Texture};
+use glam::{FloatExt, Vec2, Vec3A};
 use std::collections::HashMap;
+
+const LIGHT_ANGLE: Vec3A = Vec3A::new(
+    std::f32::consts::FRAC_1_SQRT_2,
+    std::f32::consts::FRAC_1_SQRT_2,
+    0.0,
+);
+const LIGHT_MIN: f32 = 0.55;
+const LIGHT_MAX: f32 = 1.00;
 
 pub struct Draw {
     width: usize,
@@ -20,6 +28,10 @@ impl Draw {
     }
 
     fn pixel(&mut self, frame: &mut [u8], x: usize, y: usize, z: f32, rgba: [u8; 4]) {
+        // TODO: Actual transparency handling
+        if rgba[3] == 0 { 
+            return;
+        }
         let index = x + y * self.width;
         let Some(depth) = self.depth_buffer.get_mut(index) else {
             return;
@@ -67,7 +79,9 @@ impl Draw {
     pub fn fill_triangle(&mut self, frame: &mut [u8], triangle: &Triangle) {
         let vertices = triangle.vertices.map(|v| v.position);
         let textures = triangle.vertices.map(|v| v.texture);
+        let normals = triangle.vertices.map(|v| v.normal);
         let texture_name = triangle.texture_name.as_str();
+
         let [a, b, c] = vertices.map(Vec3A::truncate);
         let z_coordinates = Vec3A::from_array(vertices.map(|point| point.z));
         let [x_min, x_max, y_min, y_max] = self.bounding_box(&vertices);
@@ -95,7 +109,14 @@ impl Draw {
                     .map(|(a, b)| a * b)
                     .sum::<Vec3A>();
 
+                let normal = normals
+                    .iter()
+                    .zip(weights.to_array().iter())
+                    .map(|(a, b)| a * b)
+                    .sum::<Vec3A>();
+
                 let scaled_texture = (texture_coordinates / texture_coordinates.z) % 1.0;
+                let scaled_normal = normal / normal.z;
 
                 let [texture_x, texture_y] = (scaled_texture
                     * Vec3A::new(texture.width as f32, texture.height as f32, 1.0))
@@ -105,7 +126,16 @@ impl Draw {
 
                 let rgba = texture.get_pixel(texture_x, texture_y);
 
-                self.pixel(frame, x, y, z, rgba);
+                let scaled_lighting =
+                    f32::lerp(LIGHT_MIN, LIGHT_MAX, scaled_normal.dot(LIGHT_ANGLE));
+                let rgba_lit = [
+                    (f32::from(rgba[0]) * scaled_lighting) as u8,
+                    (f32::from(rgba[1]) * scaled_lighting) as u8,
+                    (f32::from(rgba[2]) * scaled_lighting) as u8,
+                    rgba[3],
+                ];
+
+                self.pixel(frame, x, y, z, rgba_lit);
             }
         }
     }

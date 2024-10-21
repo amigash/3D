@@ -2,15 +2,15 @@
 
 mod camera;
 mod draw;
-mod mesh;
 mod geometry;
+mod mesh;
 
 use crate::geometry::{ProjectedTriangle, ProjectedVertex};
 use crate::{
     camera::Camera,
     draw::Draw,
-    mesh::ObjectData,
     geometry::{Triangle, Vertex},
+    mesh::ObjectData,
 };
 use glam::{Vec2, Vec3A, Vec4};
 use pixels::{Pixels, SurfaceTexture};
@@ -28,11 +28,11 @@ use win_loop::{
     App, Context, InputState,
 };
 
-const OBJECT_PATH: &str = "assets/coconut/Wii_Coconut_Mall.obj";
+const OBJECT_PATH: &str = "assets/coconut/mall.obj";
 const CLEAR_COLOR: [u8; 4] = [110, 177, 255, 255];
-const WIDTH: u32 = 2560;
-const HEIGHT: u32 = 1600;
-const SCALE: u32 = 4;
+const WIDTH: u32 = 800;
+const HEIGHT: u32 = 600;
+const SCALE: u32 = 2;
 const TARGET_FRAME_TIME_SECONDS: f32 = 1.0 / 144.0;
 const MAX_FRAME_TIME_SECONDS: f32 = 0.1;
 const CAMERA_POSITION: Vec3A = Vec3A::new(0.0, 2.5, 5.0);
@@ -154,9 +154,10 @@ impl App for Application {
                 let position = centered * Vec3A::from((0.5 * size).extend(1.0));
                 let texture =
                     Vec3A::new(vertex.texture.x, vertex.texture.y, 1.0) / vertex.position.w;
+                let normal = Vec3A::new(vertex.normal.x, vertex.normal.y, 1.0) / vertex.position.w;
                 Vertex {
                     position,
-                    normal: vertex.normal,
+                    normal,
                     texture,
                 }
             }),
