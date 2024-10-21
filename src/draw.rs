@@ -14,7 +14,7 @@ impl Draw {
         Draw {
             width,
             height,
-            depth_buffer: vec![0.0; width * height],
+            depth_buffer: vec![f32::MAX; width * height],
             textures,
         }
     }
@@ -24,7 +24,7 @@ impl Draw {
         let Some(depth) = self.depth_buffer.get_mut(index) else {
             return;
         };
-        if z < *depth {
+        if z > *depth {
             return;
         }
         *depth = z;
@@ -105,7 +105,7 @@ impl Draw {
 
                 let rgba = texture.get_pixel(texture_x, texture_y);
 
-                self.pixel(frame, x, y, -z, rgba);
+                self.pixel(frame, x, y, z, rgba);
             }
         }
     }
