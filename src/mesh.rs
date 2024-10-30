@@ -1,5 +1,5 @@
 use crate::geometry::{Triangle, Vertex};
-use glam::{Vec2, Vec3A};
+use glam::Vec3A;
 use image::ImageReader;
 use std::{
     collections::HashMap,
@@ -159,10 +159,8 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
                     "vt" => &mut texture_coordinates,
                     _ => unreachable!("Match arms should reflect possible commands"),
                 };
-                let mut points: Vec<f32> = words
-                    .take(3)
-                    .map(|w| w.parse())
-                    .collect::<Result<_, _>>()?;
+                let mut points: Vec<f32> =
+                    words.take(3).map(|w| w.parse()).collect::<Result<_, _>>()?;
                 if command == "vt" {
                     if points.len() == 2 {
                         points.push(1.0);
@@ -177,9 +175,13 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
             }
             "f" => {
                 let mut triangle = Vec::with_capacity(4);
-                
+
                 for word in words {
-                    let vertex_data: Vec<usize> = word.split('/').filter(|s| !s.is_empty()).map(str::parse).collect::<Result<_, _>>()?;
+                    let vertex_data: Vec<usize> = word
+                        .split('/')
+                        .filter(|s| !s.is_empty())
+                        .map(str::parse)
+                        .collect::<Result<_, _>>()?;
 
                     let (position, texture, normal) = match *vertex_data.as_slice() {
                         [v, vt, vn] => (vertices[v], texture_coordinates[vt], normals[vn]),
@@ -194,20 +196,28 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
                         texture,
                     });
                 }
-                
+
                 let texture = current_material.clone().unwrap_or_default();
-                
+
                 match triangle.len() {
                     3 => {
-                        triangles.push(Triangle::new([triangle[0], triangle[1], triangle[2]], texture.as_str()));
+                        triangles.push(Triangle::new(
+                            [triangle[0], triangle[1], triangle[2]],
+                            texture.as_str(),
+                        ));
                     }
                     4 => {
-                        triangles.push(Triangle::new([triangle[0], triangle[1], triangle[3]], texture.as_str()));
-                        triangles.push(Triangle::new([triangle[1], triangle[2], triangle[3]], texture.as_str()));
+                        triangles.push(Triangle::new(
+                            [triangle[0], triangle[1], triangle[3]],
+                            texture.as_str(),
+                        ));
+                        triangles.push(Triangle::new(
+                            [triangle[1], triangle[2], triangle[3]],
+                            texture.as_str(),
+                        ));
                     }
-                    _ => bail!(err("Only faces of 3 and 4 vertices are supported"))
+                    _ => bail!(err("Only faces of 3 and 4 vertices are supported")),
                 }
-                
             }
             _ => (),
         }

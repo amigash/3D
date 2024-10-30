@@ -29,25 +29,21 @@ impl Triangle {
 
     pub fn project(&self, view_projection_matrix: Mat4) -> ProjectedTriangle {
         ProjectedTriangle {
-            vertices: self.vertices.map(|vertex| {
-                ProjectedVertex {
-                    position: view_projection_matrix * vertex.position.extend(1.0),
-                    normal: vertex.normal,
-                    texture: vertex.texture,
-                }
+            vertices: self.vertices.map(|vertex| ProjectedVertex {
+                position: view_projection_matrix * vertex.position.extend(1.0),
+                normal: vertex.normal,
+                texture: vertex.texture,
             }),
             normal: self.normal,
             texture_name: self.texture_name.clone(),
             centroid: self.centroid,
         }
     }
-    
+
     pub fn is_facing_viewer(&self, viewer_position: Vec3A) -> bool {
-        self
-            .normal
+        self.normal
             .dot(viewer_position - self.centroid)
             .is_sign_positive()
-        
     }
 }
 

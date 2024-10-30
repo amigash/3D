@@ -6,12 +6,7 @@ mod geometry;
 mod mesh;
 
 use crate::geometry::{ProjectedTriangle, ProjectedVertex};
-use crate::{
-    camera::Camera,
-    draw::Draw,
-    geometry::Triangle,
-    mesh::ObjectData,
-};
+use crate::{camera::Camera, draw::Draw, geometry::Triangle, mesh::ObjectData};
 use glam::{Vec2, Vec3A, Vec4};
 use pixels::{Pixels, SurfaceTexture};
 use std::{sync::Arc, time::Duration};
@@ -28,11 +23,11 @@ use win_loop::{
     App, Context, InputState,
 };
 
-const OBJECT_PATH: &str = "assets/coconut/mall.obj";
+const OBJECT_PATH: &str = "assets/sponza/sponza.obj";
 const CLEAR_COLOR: [u8; 4] = [110, 177, 255, 255];
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
-const SCALE: u32 = 2;
+const SCALE: u32 = 1;
 const TARGET_FRAME_TIME_SECONDS: f32 = 1.0 / 144.0;
 const MAX_FRAME_TIME_SECONDS: f32 = 0.1;
 const CAMERA_POSITION: Vec3A = Vec3A::new(0.0, 2.5, 5.0);
@@ -104,8 +99,6 @@ impl Application {
     }
 }
 
-
-
 impl App for Application {
     fn update(&mut self, ctx: &mut Context) -> Result<()> {
         // Keeps the mesh sorted so that closer triangles are drawn first, resulting in fewer draw calls.
@@ -138,7 +131,10 @@ impl App for Application {
             .map(|triangle| triangle.project(self.camera.view_projection_matrix()))
             .collect();
         clip(&mut projected);
-        for triangle in projected.iter().map(|triangle| triangle.divide_and_scale(self.size)) {
+        for triangle in projected
+            .iter()
+            .map(|triangle| triangle.divide_and_scale(self.size))
+        {
             self.draw.fill_triangle(self.pixels.frame_mut(), &triangle);
         }
         self.draw.clear_depth_buffer();

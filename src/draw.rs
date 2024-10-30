@@ -1,15 +1,8 @@
 use crate::{geometry::Triangle, mesh::Texture};
 use glam::{FloatExt, Vec2, Vec3A};
-use std::{
-    collections::HashMap,
-    f32::consts::FRAC_1_SQRT_2
-};
+use std::{collections::HashMap, f32::consts::FRAC_1_SQRT_2};
 
-const LIGHT_ANGLE: Vec3A = Vec3A::new(
-    FRAC_1_SQRT_2,
-    FRAC_1_SQRT_2,
-    0.0,
-);
+const LIGHT_ANGLE: Vec3A = Vec3A::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.0);
 const LIGHT_MIN: f32 = 0.55;
 const LIGHT_MAX: f32 = 1.00;
 
@@ -55,12 +48,7 @@ impl Draw {
         vertices
             .iter()
             .fold(
-                [
-                    (self.width - 1) as f32,
-                    0.0,
-                    (self.height - 1) as f32,
-                    0.0,
-                ],
+                [(self.width - 1) as f32, 0.0, (self.height - 1) as f32, 0.0],
                 |[x_min, x_max, y_min, y_max], e| {
                     [
                         x_min.min(e.x).max(0.0),
@@ -83,7 +71,11 @@ impl Draw {
         let vertices = triangle.vertices.map(|v| v.position);
         let textures = triangle.vertices.map(|v| v.texture);
         let normals = triangle.vertices.map(|v| v.normal);
-        let texture = self.textures.get(triangle.texture_name.as_str()).cloned().unwrap_or_default();
+        let texture = self
+            .textures
+            .get(triangle.texture_name.as_str())
+            .cloned()
+            .unwrap_or_default();
 
         let [a, b, c] = vertices.map(Vec3A::truncate);
         let z_coordinates = Vec3A::from_array(vertices.map(|point| point.z));
@@ -93,7 +85,7 @@ impl Draw {
         for y in y_min..=y_max {
             for x in x_min..=x_max {
                 let point = Vec2::new(x as f32, y as f32) + 0.5;
-                
+
                 let bcp = Self::triangle_area(b, c, point);
                 let cap = Self::triangle_area(c, a, point);
                 let abp = Self::triangle_area(a, b, point);
@@ -104,7 +96,7 @@ impl Draw {
 
                 let weights = Vec3A::new(bcp, cap, abp) / area;
                 let z = z_coordinates.dot(weights);
-                
+
                 let apply_weights = |attributes: [Vec3A; 3]| {
                     attributes
                         .iter()
@@ -118,7 +110,7 @@ impl Draw {
 
                 let scaled_texture = (texture_coordinates / texture_coordinates.z) % 1.0;
                 let scaled_normal = normal / normal.z;
-                
+
                 let [texture_x, texture_y] = (scaled_texture
                     * Vec3A::new(texture.width as f32, texture.height as f32, 1.0))
                 .truncate()
@@ -129,7 +121,7 @@ impl Draw {
 
                 let scaled_lighting =
                     f32::lerp(LIGHT_MIN, LIGHT_MAX, scaled_normal.dot(LIGHT_ANGLE));
-                
+
                 for channel in &mut rgba[0..3] {
                     *channel = (f32::from(*channel) * scaled_lighting) as u8;
                 }
