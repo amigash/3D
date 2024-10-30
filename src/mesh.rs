@@ -109,9 +109,6 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
 
     let mut triangles = vec![];
     let mut textures = HashMap::new();
-    let mut length = Vec2::ZERO;
-    let mut width = Vec2::ZERO;
-    let mut height = Vec2::ZERO;
 
     // Some default materials for debugging
     textures.insert("cyan".to_string(), Texture::from_color(0, 255, 255));
@@ -162,30 +159,27 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
                     "vt" => &mut texture_coordinates,
                     _ => unreachable!("Match arms should reflect possible commands"),
                 };
-
-                // We want to treat every `vt {u} {v}` as `vt {u} {v} 1.0` for later perspective transforms
-                let texture_extension = (command == "vt").then_some("1.0".to_string()).into_iter();
-
-                let points: Vec<f32> = words
+                let mut points: Vec<f32> = words
                     .take(3)
-                    .chain(texture_extension)
                     .map(|w| w.parse())
                     .collect::<Result<_, _>>()?;
+                if command == "vt" {
+                    if points.len() == 2 {
+                        points.push(1.0);
+                    } else if points.len() == 3 {
+                        points[2] = 1.0;
+                    }
+                }
                 if points.len() != 3 {
                     bail!(err("Incorrect number of vertices"));
                 }
                 destination.push(Vec3A::from_slice(&points));
             }
             "f" => {
-                let mut triangle = [Vertex::default(); 3];
-                for vertex in &mut triangle {
-                    let vertex_data: Vec<usize> = words
-                        .next()
-                        .with_context(|| err("Expected another vertex"))?
-                        .split('/')
-                        .filter(|s| !s.is_empty())
-                        .map(str::parse)
-                        .collect::<Result<_, _>>()?;
+                let mut triangle = Vec::with_capacity(4);
+                
+                for word in words {
+                    let vertex_data: Vec<usize> = word.split('/').filter(|s| !s.is_empty()).map(str::parse).collect::<Result<_, _>>()?;
 
                     let (position, texture, normal) = match *vertex_data.as_slice() {
                         [v, vt, vn] => (vertices[v], texture_coordinates[vt], normals[vn]),
@@ -194,23 +188,26 @@ pub fn load_from_obj_file(path: impl AsRef<Path>) -> Result<ObjectData> {
                         _ => bail!(err("Invalid number of face arguments")),
                     };
 
-                    length.x = length.x.min(position.x);
-                    length.y = length.y.max(position.x);
-
-                    width.x = width.x.min(position.z);
-                    width.y = width.y.max(position.z);
-
-                    height.x = height.x.min(position.y);
-                    height.y = height.y.max(position.y);
-
-                    *vertex = Vertex {
+                    triangle.push(Vertex {
                         position,
                         normal,
                         texture,
-                    };
+                    });
                 }
+                
                 let texture = current_material.clone().unwrap_or_default();
-                triangles.push(Triangle::new(triangle, texture.as_str()));
+                
+                match triangle.len() {
+                    3 => {
+                        triangles.push(Triangle::new([triangle[0], triangle[1], triangle[2]], texture.as_str()));
+                    }
+                    4 => {
+                        triangles.push(Triangle::new([triangle[0], triangle[1], triangle[3]], texture.as_str()));
+                        triangles.push(Triangle::new([triangle[1], triangle[2], triangle[3]], texture.as_str()));
+                    }
+                    _ => bail!(err("Only faces of 3 and 4 vertices are supported"))
+                }
+                
             }
             _ => (),
         }
