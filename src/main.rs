@@ -9,7 +9,7 @@ use crate::geometry::{ProjectedTriangle, ProjectedVertex};
 use crate::{
     camera::Camera,
     draw::Draw,
-    geometry::{Triangle, Vertex},
+    geometry::Triangle,
     mesh::ObjectData,
 };
 use glam::{Vec2, Vec3A, Vec4};
@@ -69,12 +69,9 @@ fn clip(triangles: &mut Vec<ProjectedTriangle>) {
 
                     if inside == 1 {
                         triangles[i].vertices = [ac, a, ab];
-                        // triangles[i].texture_name = "cyan".to_string();
                     } else {
                         triangles[i].vertices = [ac, b, ab];
-                        // triangles[i].texture_name = "yellow".to_string();
                         triangle.vertices = [ac, b, c];
-                        // triangle.texture_name = "magenta".to_string();
                         triangles.insert(i, triangle);
                         length += 1;
                     }
@@ -107,6 +104,8 @@ impl Application {
     }
 }
 
+
+
 impl App for Application {
     fn update(&mut self, ctx: &mut Context) -> Result<()> {
         // Keeps the mesh sorted so that closer triangles are drawn first, resulting in fewer draw calls.
@@ -131,63 +130,19 @@ impl App for Application {
     }
 
     fn render(&mut self, _blending_factor: f64) -> Result<()> {
-        let size = self.size;
-        let camera_position = self.camera.position;
-        let view_projection_matrix = self.camera.view_projection_matrix();
-
-        let project = |triangle: &Triangle| ProjectedTriangle {
-            vertices: triangle.vertices.map(|vertex| ProjectedVertex {
-                position: view_projection_matrix * vertex.position.extend(1.0),
-                normal: vertex.normal,
-                texture: vertex.texture,
-            }),
-            normal: triangle.normal,
-            texture_name: triangle.texture_name.clone(),
-            centroid: triangle.centroid,
-        };
-
-        let divide_and_scale = |triangle: ProjectedTriangle| Triangle {
-            vertices: triangle.vertices.map(|vertex| {
-                let perspective_divided = Vec3A::from_vec4(vertex.position / vertex.position.w);
-                let flipped = perspective_divided.with_y(-perspective_divided.y);
-                let centered = flipped + Vec3A::new(1.0, 1.0, 0.0);
-                let position = centered * Vec3A::from((0.5 * size).extend(1.0));
-                let texture =
-                    Vec3A::new(vertex.texture.x, vertex.texture.y, 1.0) / vertex.position.w;
-                let normal = Vec3A::new(vertex.normal.x, vertex.normal.y, 1.0) / vertex.position.w;
-                Vertex {
-                    position,
-                    normal,
-                    texture,
-                }
-            }),
-            normal: triangle.normal,
-            texture_name: triangle.texture_name.clone(),
-            centroid: triangle.centroid,
-        };
-
-        let is_facing_camera = |triangle: &&Triangle| {
-            triangle
-                .normal
-                .dot(camera_position - triangle.centroid)
-                .is_sign_positive()
-        };
-
         self.clear_screen();
         let mut projected: Vec<_> = self
             .mesh
             .iter()
-            .filter(is_facing_camera)
-            .map(project)
+            .filter(|triangle| triangle.is_facing_viewer(self.camera.position))
+            .map(|triangle| triangle.project(self.camera.view_projection_matrix()))
             .collect();
         clip(&mut projected);
-        for triangle in projected.into_iter().map(divide_and_scale) {
+        for triangle in projected.iter().map(|triangle| triangle.divide_and_scale(self.size)) {
             self.draw.fill_triangle(self.pixels.frame_mut(), &triangle);
         }
-
         self.draw.clear_depth_buffer();
         self.pixels.render()?;
-
         Ok(())
     }
 
