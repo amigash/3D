@@ -118,25 +118,23 @@ impl Draw {
 
                 let scaled_texture = (texture_coordinates / texture_coordinates.z) % 1.0;
                 let scaled_normal = normal / normal.z;
-
+                
                 let [texture_x, texture_y] = (scaled_texture
                     * Vec3A::new(texture.width as f32, texture.height as f32, 1.0))
                 .truncate()
                 .to_array()
                 .map(|float| float as usize);
 
-                let rgba = texture.get_pixel(texture_x, texture_y);
+                let mut rgba = texture.get_pixel(texture_x, texture_y);
 
                 let scaled_lighting =
                     f32::lerp(LIGHT_MIN, LIGHT_MAX, scaled_normal.dot(LIGHT_ANGLE));
-                let rgba_lit = [
-                    (f32::from(rgba[0]) * scaled_lighting) as u8,
-                    (f32::from(rgba[1]) * scaled_lighting) as u8,
-                    (f32::from(rgba[2]) * scaled_lighting) as u8,
-                    rgba[3],
-                ];
+                
+                for channel in &mut rgba[0..3] {
+                    *channel = (f32::from(*channel) * scaled_lighting) as u8;
+                }
 
-                self.pixel(frame, x, y, z, rgba_lit);
+                self.pixel(frame, x, y, z, rgba);
             }
         }
     }
