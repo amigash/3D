@@ -5,5 +5,8 @@ Current features:
 * Frustum culling
 * Textures via [MTL files](https://en.wikipedia.org/wiki/Wavefront_.obj_file#Material_template_library)
 * Lighting
+* Free-camera
+
+Move the camera with WASD, left-shift, and space. Look around with the mouse.
 
 To use with new files, change OBJECT_PATH in src/main to the path of the OBJ file. 
