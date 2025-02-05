@@ -4,5 +4,6 @@ Current features:
 * Backface culling
 * Frustum culling
 * Textures via [MTL files](https://en.wikipedia.org/wiki/Wavefront_.obj_file#Material_template_library)
+* Lighting
 
 To use with new files, change OBJECT_PATH in src/main to the path of the OBJ file. 
