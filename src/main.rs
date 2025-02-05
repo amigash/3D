@@ -23,15 +23,16 @@ use win_loop::{
     App, Context, InputState,
 };
 
-const OBJECT_PATH: &str = "assets/sponza/sponza.obj";
+const OBJECT_PATH: &str = "assets/castle/castle.obj";
 const CLEAR_COLOR: [u8; 4] = [110, 177, 255, 255];
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
-const SCALE: u32 = 1;
+const SCALE: u32 = 4;
 const TARGET_FRAME_TIME_SECONDS: f32 = 1.0 / 144.0;
 const MAX_FRAME_TIME_SECONDS: f32 = 0.1;
 const CAMERA_POSITION: Vec3A = Vec3A::new(0.0, 2.5, 5.0);
 const CAMERA_ROTATION: Vec2 = Vec2::ZERO;
+const FULLSCREEN: bool = true;
 
 const CLIPPING_PLANES: [Vec4; 5] = [
     Vec4::new(0.0, 0.0, 1.0, 1.0),  // Near
@@ -173,7 +174,7 @@ fn main() -> Result<()> {
     let window = Arc::new(
         WindowBuilder::new()
             .with_inner_size(PhysicalSize::new(WIDTH, HEIGHT))
-            .with_fullscreen(Some(Fullscreen::Borderless(None)))
+            .with_fullscreen(FULLSCREEN.then_some(Fullscreen::Borderless(None)))
             .build(&event_loop)?,
     );
 
@@ -187,9 +188,11 @@ fn main() -> Result<()> {
         textures,
     } = mesh::load_from_obj_file(OBJECT_PATH)?;
 
+    let pixels = Pixels::new(width, height, SurfaceTexture::new(WIDTH, HEIGHT, &window))?;
+
     let app = Application {
         mesh,
-        pixels: Pixels::new(width, height, SurfaceTexture::new(WIDTH, HEIGHT, &window))?,
+        pixels,
         scale: SCALE,
         camera: Camera::new(CAMERA_POSITION, CAMERA_ROTATION),
         draw: Draw::new(width as usize, height as usize, textures),
