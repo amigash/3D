@@ -7,6 +7,9 @@ Current features:
 * Lighting
 * Free-camera
 
+# Requirements
+[Rust and Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
+
 # Installation and running
 
 ```git clone https://github.com/amigash/3D/```
