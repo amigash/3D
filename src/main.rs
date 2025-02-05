@@ -9,7 +9,7 @@ use crate::geometry::{ProjectedTriangle, ProjectedVertex};
 use crate::{camera::Camera, draw::Draw, geometry::Triangle, mesh::ObjectData};
 use glam::{Vec2, Vec3A, Vec4};
 use pixels::{Pixels, SurfaceTexture};
-use std::{sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration, f32::consts::PI};
 use win_loop::{
     anyhow::Result,
     start,
@@ -30,8 +30,8 @@ const HEIGHT: u32 = 600;
 const SCALE: u32 = 8;
 const TARGET_FRAME_TIME_SECONDS: f32 = 1.0 / 144.0;
 const MAX_FRAME_TIME_SECONDS: f32 = 0.1;
-const CAMERA_POSITION: Vec3A = Vec3A::new(0.0, 2.5, 5.0);
-const CAMERA_ROTATION: Vec2 = Vec2::ZERO;
+const CAMERA_POSITION: Vec3A = Vec3A::new(0.0, 3.0, -4.0);
+const CAMERA_ROTATION: Vec2 = Vec2::new(0.0, PI);
 const FULLSCREEN: bool = true;
 
 const CLIPPING_PLANES: [Vec4; 5] = [
