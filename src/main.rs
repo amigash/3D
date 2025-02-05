@@ -23,7 +23,7 @@ use win_loop::{
     App, Context, InputState,
 };
 
-const OBJECT_PATH: &str = "assets/sponza/sponza.obj";
+const OBJECT_PATH: &str = "assets/grass_block/grass_block.obj";
 const CLEAR_COLOR: [u8; 4] = [110, 177, 255, 255];
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
