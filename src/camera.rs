@@ -6,7 +6,7 @@ const MIN_PITCH: f32 = 0.99 * -FRAC_PI_2;
 const MAX_PITCH: f32 = 0.99 * FRAC_PI_2;
 const Z_NEAR: f32 = 0.1;
 const Z_FAR: f32 = 20_000.0;
-const SPEED: f32 = 5.0;
+const SPEED: f32 = 0.1;
 const SENSITIVITY: f32 = 0.003;
 const FOV: f32 = FRAC_PI_2;
 
