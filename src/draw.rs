@@ -3,7 +3,7 @@ use glam::{FloatExt, Vec2, Vec3A};
 use std::{collections::HashMap, f32::consts::FRAC_1_SQRT_2};
 
 const LIGHT_ANGLE: Vec3A = Vec3A::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.0);
-const LIGHT_MIN: f32 = 0.55;
+const LIGHT_MIN: f32 = 0.75;
 const LIGHT_MAX: f32 = 1.00;
 
 pub struct Draw {
