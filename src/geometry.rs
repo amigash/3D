@@ -43,7 +43,7 @@ impl Triangle {
     pub fn is_facing_viewer(&self, viewer_position: Vec3A) -> bool {
         self.normal
             .dot(viewer_position - self.centroid)
-            .is_sign_positive()
+            .is_sign_negative()
     }
 }
 
